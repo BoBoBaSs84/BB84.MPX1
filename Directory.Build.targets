@@ -1,0 +1,11 @@
+<Project>
+
+  <!-- Evaluated after the project file, so OutputType and IsTestProject are known here. -->
+
+  <!-- Libraries must stay trimming and Native AOT compatible (CON-001, CON-002). -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true' and '$(OutputType)' == 'Library'">
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+</Project>

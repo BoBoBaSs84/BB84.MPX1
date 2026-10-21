@@ -1,0 +1,42 @@
+<Project>
+
+  <!-- Versioning related properties -->
+  <PropertyGroup Label="Versioning">
+    <VersionStatus>Alpha</VersionStatus>
+    <VersionMajor>1</VersionMajor>
+    <VersionMinor>0</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+    <VersionPrefix>$(VersionMajor).$(VersionMinor).$(VersionPatch)</VersionPrefix>
+    <VersionSuffix Condition="$(Configuration.Equals('Debug'))">Development</VersionSuffix>
+    <VersionSuffix Condition="$(Configuration.Equals('Release'))">$(VersionStatus)</VersionSuffix>
+    <FileVersion>$(VersionPrefix)</FileVersion>
+  </PropertyGroup>
+
+  <!-- Build related properties -->
+  <PropertyGroup Label="Build">
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- Metadata related properties -->
+  <PropertyGroup Label="MetaData">
+    <Author>BoBoBaSs84</Author>
+    <Authors>$(Author)</Authors>
+    <Company>$(Author)</Company>
+    <Copyright>Copyright © $([System.DateTime]::UtcNow.Year) $(Author)</Copyright>
+    <Description>A SysEx editor and librarian for the Lexicon MPX 1 multi-effects processor (firmware V1.00 and V1.10). It replaces the 1998 16-bit editor, which no longer runs on 64-bit Windows.</Description>
+    <Product>BB84.MPX1</Product>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/$(Author)/$(Product)</RepositoryUrl>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BB84.MPX1.App/BB84.MPX1.App.csproj" />
+    <Project Path="src/BB84.MPX1.Core/BB84.MPX1.Core.csproj" />
+    <Project Path="src/BB84.MPX1.Midi.WinMM/BB84.MPX1.Midi.WinMM.csproj" />
+    <Project Path="src/BB84.MPX1.Midi/BB84.MPX1.Midi.csproj" />
+    <Project Path="src/BB84.MPX1.Simulator/BB84.MPX1.Simulator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BB84.MPX1.App.Tests/BB84.MPX1.App.Tests.csproj" />
+    <Project Path="tests/BB84.MPX1.Core.Tests/BB84.MPX1.Core.Tests.csproj" />
+    <Project Path="tests/BB84.MPX1.Midi.Tests/BB84.MPX1.Midi.Tests.csproj" />
+    <Project Path="tests/BB84.MPX1.Midi.WinMM.Tests/BB84.MPX1.Midi.WinMM.Tests.csproj" />
+    <Project Path="tests/BB84.MPX1.Simulator.Tests/BB84.MPX1.Simulator.Tests.csproj" />
+  </Folder>
+</Solution>

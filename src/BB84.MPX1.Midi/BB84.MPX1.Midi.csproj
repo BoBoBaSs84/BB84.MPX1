@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\BB84.MPX1.Core\BB84.MPX1.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BB84.MPX1.Midi.Tests" />
+  </ItemGroup>
+
+</Project>

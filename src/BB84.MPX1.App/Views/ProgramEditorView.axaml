@@ -1,0 +1,267 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:e="using:BB84.MPX1.App.ViewModels.Editing"
+             xmlns:p="using:BB84.MPX1.App.ViewModels.Parameters"
+             xmlns:core="using:BB84.MPX1.Core.Programs"
+             x:Class="BB84.MPX1.App.Views.ProgramEditorView"
+             x:DataType="e:ProgramEditorViewModel"
+             x:CompileBindings="True">
+
+  <UserControl.DataTemplates>
+    <!-- One parameter of an effect or modulator block. -->
+    <DataTemplate DataType="e:BlockParameterViewModel">
+      <Grid ColumnDefinitions="110,*,110,Auto,110" ColumnSpacing="8" Margin="0,2" ToolTip.Tip="{Binding Details}">
+        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+        <Slider Grid.Column="1" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Value}"
+                TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" IsVisible="{Binding IsNumeric}" />
+        <NumericUpDown Grid.Column="2" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Value}"
+                       Increment="1" FormatString="0" IsVisible="{Binding IsNumeric}" />
+        <ComboBox Grid.Column="3" Width="110" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                  IsVisible="{Binding HasOptions}" />
+        <TextBlock Grid.Column="4" Text="{Binding DisplayText}" VerticalAlignment="Center"
+                   FontFamily="Consolas,Menlo,monospace" TextTrimming="CharacterEllipsis" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <UserControl.Styles>
+    <Style Selector="Expander">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel Margin="12">
+
+    <!-- Document commands. -->
+    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
+      <WrapPanel>
+        <WrapPanel.Styles>
+          <Style Selector="WrapPanel > Button, WrapPanel > ToggleSwitch">
+            <Setter Property="Margin" Value="0,0,6,6" />
+          </Style>
+        </WrapPanel.Styles>
+        <Button Content="New" Command="{Binding NewCommand}" />
+        <Button Content="Open active" Command="{Binding ReceiveActiveCommand}" ToolTip.Tip="Read the running program from the MPX 1." />
+        <Button Content="Open .syx…" Command="{Binding OpenFileCommand}" />
+        <Button Content="Save .syx…" Command="{Binding SaveFileCommand}" />
+        <Button Content="Store ▾" IsEnabled="{Binding IsConnected}">
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <StackPanel x:DataType="e:ProgramEditorViewModel" Spacing="8" Width="240">
+                <TextBlock Text="Store in slot (0–199 presets, 200–249 user)" TextWrapping="Wrap" />
+                <NumericUpDown Minimum="0" Maximum="249" Increment="1" FormatString="000" Value="{Binding StoreTarget}" />
+                <Button Content="Store" Classes="accent" HorizontalAlignment="Right" Command="{Binding StoreCommand}" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <Button Content="Send to active" Command="{Binding SendToActiveCommand}" ToolTip.Tip="Replace the running program without storing it." />
+        <Button Content="Revert" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+        <ToggleSwitch OnContent="Audition on" OffContent="Audition off" IsChecked="{Binding IsAuditionEnabled}"
+                      IsEnabled="{Binding CanAudition}"
+                      ToolTip.Tip="Send every change to the running program so you hear it. Nothing is stored." />
+      </WrapPanel>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="{Binding Source}" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Text="● modified" Foreground="{DynamicResource SystemFillColorCautionBrush}" VerticalAlignment="Center"
+                   IsVisible="{Binding IsDirty}" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Opacity="0.8" />
+      <Border Padding="8" CornerRadius="4" Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+              IsVisible="{Binding HasRoutingWarning}">
+        <TextBlock Text="{Binding RoutingWarning}" TextWrapping="Wrap" />
+      </Border>
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel Margin="0,0,12,0">
+
+        <!-- Name, tempo, master. -->
+        <Expander Header="Program" IsExpanded="True">
+          <Grid ColumnDefinitions="Auto,160,24,Auto,160,24,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="8">
+            <TextBlock Classes="label" Text="Name" />
+            <TextBox Grid.Column="1" Text="{Binding Name}" MaxLength="12" FontFamily="Consolas,Menlo,monospace" />
+            <TextBlock Grid.Column="3" Classes="label" Text="Master level" />
+            <NumericUpDown Grid.Column="4" Minimum="-96" Maximum="0" Increment="1" FormatString="0" Value="{Binding MasterLevel}" />
+            <TextBlock Grid.Column="6" Classes="label" Text="{Binding MasterLevelText}" />
+
+            <TextBlock Grid.Row="1" Classes="label" Text="Tempo (BPM)" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Minimum="41" Maximum="400" Increment="1" FormatString="0" Value="{Binding Tempo}" />
+            <TextBlock Grid.Row="1" Grid.Column="3" Classes="label" Text="Master mix (%)" />
+            <NumericUpDown Grid.Row="1" Grid.Column="4" Minimum="0" Maximum="100" Increment="1" FormatString="0" Value="{Binding MasterMix}" />
+
+            <TextBlock Grid.Row="2" Classes="label" Text="Tempo source" />
+            <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static e:ProgramEditorViewModel.TempoSources}" SelectedItem="{Binding SelectedTempoSource}" />
+            <TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Beat value" />
+            <ComboBox Grid.Row="2" Grid.Column="4" HorizontalAlignment="Stretch" ItemsSource="{x:Static e:ProgramEditorViewModel.BeatValues}" SelectedItem="{Binding SelectedBeatValue}" />
+            <TextBlock Grid.Row="2" Grid.Column="6" Classes="label" Text="Meter" />
+            <ComboBox Grid.Row="2" Grid.Column="7" Width="180" ItemsSource="{x:Static e:ProgramEditorViewModel.Meters}" SelectedItem="{Binding SelectedMeter}" />
+
+            <TextBlock Grid.Row="3" Classes="label" Text="Tap source" />
+            <ComboBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static e:ProgramEditorViewModel.TapSources}" SelectedItem="{Binding SelectedTapSource}" />
+            <TextBlock Grid.Row="3" Grid.Column="3" Classes="label" Text="Tap average" />
+            <NumericUpDown Grid.Row="3" Grid.Column="4" Minimum="1" Maximum="8" Increment="1" FormatString="0" Value="{Binding TapAverage}" />
+            <TextBlock Grid.Row="3" Grid.Column="6" Classes="label" Text="Tap level" />
+            <NumericUpDown Grid.Row="3" Grid.Column="7" Width="180" HorizontalAlignment="Left" Minimum="0" Maximum="127" Increment="1" FormatString="0" Value="{Binding TapSourceLevel}" />
+          </Grid>
+        </Expander>
+
+        <!-- Six effect blocks. -->
+        <ItemsControl ItemsSource="{Binding Blocks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="e:EffectBlockViewModel">
+              <Expander>
+                <Expander.Header>
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Width="60" VerticalAlignment="Center" />
+                    <ToggleSwitch IsChecked="{Binding IsOn}" OnContent="On" OffContent="Bypassed" />
+                    <ComboBox Width="200" ItemsSource="{Binding Algorithms}" SelectedItem="{Binding SelectedAlgorithm}" />
+                  </StackPanel>
+                </Expander.Header>
+                <StackPanel>
+                  <TextBlock Text="{Binding Notice}" IsVisible="{Binding HasNotice}" Opacity="0.7" TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding Parameters}" />
+                </StackPanel>
+              </Expander>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Routing: map plus rule-aware table. -->
+        <Expander Header="Routing">
+          <StackPanel Spacing="10">
+            <ItemsControl ItemsSource="{Binding RoutingMap}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="core:RoutingSlot">
+                  <Grid Width="96" RowDefinitions="34,34">
+                    <Rectangle Height="2" VerticalAlignment="Center" Fill="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                    <Rectangle Grid.Row="1" Height="2" VerticalAlignment="Center" IsVisible="{Binding IsDoublePath}"
+                               Fill="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                    <Border Margin="6,3" CornerRadius="4" BorderThickness="1" IsVisible="{Binding OnUpper}"
+                            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                      <TextBlock Text="{Binding Type}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+                    </Border>
+                    <Border Grid.Row="1" Margin="6,3" CornerRadius="4" BorderThickness="1" IsVisible="{Binding OnLower}"
+                            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                      <TextBlock Text="{Binding Mode}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="30,130,130,130,130" Opacity="0.7">
+              <TextBlock Text="#" />
+              <TextBlock Grid.Column="1" Text="Block" />
+              <TextBlock Grid.Column="2" Text="Routing" />
+              <TextBlock Grid.Column="3" Text="Upper input" />
+              <TextBlock Grid.Column="4" Text="Lower input" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding RoutingRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="e:RoutingRowViewModel">
+                  <Grid ColumnDefinitions="30,130,130,130,130" Margin="0,2">
+                    <TextBlock Text="{Binding Position}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" IsVisible="{Binding !IsEffect}" />
+                    <ComboBox Grid.Column="1" Width="120" ItemsSource="{x:Static e:RoutingRowViewModel.Effects}"
+                              SelectedItem="{Binding SelectedEffect}" IsVisible="{Binding IsEffect}" />
+                    <ComboBox Grid.Column="2" Width="120" ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}"
+                              IsEnabled="{Binding CanChooseMode}" />
+                    <ComboBox Grid.Column="3" Width="120" ItemsSource="{x:Static e:RoutingRowViewModel.Inputs}"
+                              SelectedItem="{Binding SelectedUpperInput}" IsVisible="{Binding UsesUpperInput}" />
+                    <ComboBox Grid.Column="4" Width="120" ItemsSource="{x:Static e:RoutingRowViewModel.Inputs}"
+                              SelectedItem="{Binding SelectedLowerInput}" IsVisible="{Binding UsesLowerInput}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
+
+        <!-- Soft row. -->
+        <Expander Header="Soft row">
+          <ItemsControl ItemsSource="{Binding SoftRow}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="e:SoftRowEntryViewModel">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                  <TextBlock Text="{Binding Label}" Width="60" VerticalAlignment="Center" />
+                  <ComboBox Width="150" ItemsSource="{Binding Destination.Types}" SelectedItem="{Binding Destination.SelectedType}" />
+                  <ComboBox Width="180" ItemsSource="{Binding Destination.Parameters}" SelectedItem="{Binding Destination.SelectedParameter}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Expander>
+
+        <!-- Patches. -->
+        <Expander Header="Patches">
+          <ItemsControl ItemsSource="{Binding Patches}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="e:PatchViewModel">
+                <Grid ColumnDefinitions="60,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" Margin="0,4,0,8">
+                  <TextBlock Grid.RowSpan="2" Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" Width="150" ItemsSource="{x:Static e:PatchViewModel.Sources}" SelectedItem="{Binding SelectedSource}"
+                            ToolTip.Tip="Source controller (Appendix A)" />
+                  <NumericUpDown Grid.Column="2" Width="110" Minimum="0" Maximum="127" FormatString="0" Value="{Binding SourceMinimum}" ToolTip.Tip="Source minimum" />
+                  <NumericUpDown Grid.Column="3" Width="110" Minimum="-1" Maximum="127" FormatString="0" Value="{Binding SourceMid}" ToolTip.Tip="Source mid (-1 = not used)" />
+                  <NumericUpDown Grid.Column="4" Width="110" Minimum="0" Maximum="127" FormatString="0" Value="{Binding SourceMaximum}" ToolTip.Tip="Source maximum" />
+                  <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <ComboBox Width="73" ItemsSource="{Binding Destination.Types}" SelectedItem="{Binding Destination.SelectedType}" ToolTip.Tip="Destination block" />
+                    <ComboBox Width="73" ItemsSource="{Binding Destination.Parameters}" SelectedItem="{Binding Destination.SelectedParameter}" ToolTip.Tip="Destination parameter" />
+                  </StackPanel>
+                  <NumericUpDown Grid.Row="1" Grid.Column="2" Width="110" Minimum="{Binding DestinationLimitMinimum}" Maximum="{Binding DestinationLimitMaximum}"
+                                 FormatString="0" Value="{Binding DestinationMinimum}" ToolTip.Tip="Destination minimum" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="3" Width="110" Minimum="{Binding DestinationLimitMinimum}" Maximum="{Binding DestinationLimitMaximum}"
+                                 FormatString="0" Value="{Binding DestinationMid}" ToolTip.Tip="Destination mid" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="4" Width="110" Minimum="{Binding DestinationLimitMinimum}" Maximum="{Binding DestinationLimitMaximum}"
+                                 FormatString="0" Value="{Binding DestinationMaximum}" ToolTip.Tip="Destination maximum" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Expander>
+
+        <!-- Knob. -->
+        <Expander Header="Knob">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="label" Text="Name" />
+            <TextBox Width="130" Text="{Binding KnobName}" MaxLength="9" FontFamily="Consolas,Menlo,monospace" />
+            <TextBlock Classes="label" Text="Value" />
+            <NumericUpDown Width="110" Minimum="0" Maximum="127" FormatString="0" Value="{Binding KnobValue}" />
+            <TextBlock Classes="label" Text="Min" />
+            <NumericUpDown Width="110" Minimum="0" Maximum="127" FormatString="0" Value="{Binding KnobMinimum}" />
+            <TextBlock Classes="label" Text="Max" />
+            <NumericUpDown Width="110" Minimum="0" Maximum="127" FormatString="0" Value="{Binding KnobMaximum}" />
+          </StackPanel>
+        </Expander>
+
+        <!-- Modulators. -->
+        <ItemsControl ItemsSource="{Binding Modulators}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="e:ModulatorBlockViewModel">
+              <Expander Header="{Binding Name}">
+                <StackPanel>
+                  <TextBlock Text="{Binding Notice}" IsVisible="{Binding HasNotice}" Opacity="0.7" TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding Parameters}" />
+                </StackPanel>
+              </Expander>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore BB84.MPX1.slnx
+
+      - name: Build
+        run: dotnet build BB84.MPX1.slnx -c Release --no-restore
+
+      # Exit code 8 = no tests found; allowed while projects are still empty.
+      # Hardware tests need a real MPX 1 and never run in CI.
+      - name: Test
+        run: dotnet test --solution BB84.MPX1.slnx -c Release --no-build -- --ignore-exit-code 8 --filter "TestCategory!=Hardware"
+
+      - name: Publish (Native AOT, win-x64)
+        run: dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: BB84.MPX1-win-x64
+          path: |
+            artifacts/publish/*.exe
+            artifacts/publish/*.dll

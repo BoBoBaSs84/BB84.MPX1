@@ -1,0 +1,159 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BB84.MPX1.App.ViewModels"
+             x:Class="BB84.MPX1.App.Views.FrontPanelView"
+             x:DataType="vm:FrontPanelViewModel"
+             x:CompileBindings="True">
+
+  <!-- Virtual front panel (UI-007): schematic, no manufacturer artwork (CON-006). -->
+  <UserControl.Styles>
+    <Style Selector="Ellipse.led">
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Height" Value="12" />
+      <Setter Property="Fill" Value="#33808080" />
+    </Style>
+    <Style Selector="Ellipse.led.on">
+      <Setter Property="Fill" Value="#FFE53935" />
+    </Style>
+    <Style Selector="Rectangle.pixel">
+      <Setter Property="Fill" Value="Transparent" />
+    </Style>
+    <Style Selector="Rectangle.pixel.on">
+      <Setter Property="Fill" Value="#FFB9F6CA" />
+    </Style>
+    <Style Selector="WrapPanel.buttons Button">
+      <Setter Property="MinWidth" Value="84" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="14">
+
+      <!-- Display, 7-segment digits and headroom. -->
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <Border Background="#FF0D2B1A" CornerRadius="6" Padding="10" BorderBrush="#FF335544" BorderThickness="2">
+          <StackPanel Spacing="4">
+            <ItemsControl ItemsSource="{Binding TopLine}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="2" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DisplayCellViewModel">
+                  <Panel Width="17" Height="26">
+                    <TextBlock Text="{Binding Text}" FontFamily="Consolas,Menlo,monospace" FontSize="20" Foreground="#FFB9F6CA"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCustom}" />
+                    <ItemsControl ItemsSource="{Binding Pixels}" IsVisible="{Binding IsCustom}" Margin="1,1">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <UniformGrid Columns="5" Rows="8" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:Boolean">
+                          <Rectangle Classes="pixel" Classes.on="{Binding}" Margin="0.5" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Panel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding BottomLine}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="2" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DisplayCellViewModel">
+                  <Panel Width="17" Height="26">
+                    <TextBlock Text="{Binding Text}" FontFamily="Consolas,Menlo,monospace" FontSize="20" Foreground="#FFB9F6CA"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCustom}" />
+                    <ItemsControl ItemsSource="{Binding Pixels}" IsVisible="{Binding IsCustom}" Margin="1,1">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <UniformGrid Columns="5" Rows="8" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:Boolean">
+                          <Rectangle Classes="pixel" Classes.on="{Binding}" Margin="0.5" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Panel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="6" VerticalAlignment="Center">
+          <Border Background="#FF1A0D0D" CornerRadius="4" Padding="8,2">
+            <TextBlock Text="{Binding Digits}" FontFamily="Consolas,Menlo,monospace" FontSize="30" Foreground="#FFFF5252" />
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="L" Width="12" VerticalAlignment="Center" />
+            <ProgressBar Width="110" Minimum="0" Maximum="6" Value="{Binding LeftHeadroom}" ToolTip.Tip="Left headroom (6 = clip)" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="R" Width="12" VerticalAlignment="Center" />
+            <ProgressBar Width="110" Minimum="0" Maximum="6" Value="{Binding RightHeadroom}" ToolTip.Tip="Right headroom (6 = clip)" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- LEDs. -->
+      <ItemsControl ItemsSource="{Binding Leds}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:LedViewModel">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,14,6">
+              <Ellipse Classes="led" Classes.on="{Binding IsOn}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Buttons: click = press + release, right-click or press and hold = hold + release (PAR-007). -->
+      <ItemsControl x:Name="ButtonList" ItemsSource="{Binding Buttons}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Classes="buttons" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PanelButtonViewModel">
+            <Button Content="{Binding Name}" Command="{Binding ClickCommand}"
+                    ToolTip.Tip="Click: press and release. Right-click or press and hold: hold." Margin="0,0,6,6" MinWidth="84" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <WrapPanel Classes="buttons">
+        <Button Content="◀ Encoder" Command="{Binding TurnCounterClockwiseCommand}" />
+        <Button Content="Encoder ▶" Command="{Binding TurnClockwiseCommand}" />
+        <Button Content="Tap (V1.10)" Command="{Binding TapCommand}" IsVisible="{Binding HasV110Codes}" />
+        <Button Content="Toggle A/B (V1.10)" Command="{Binding ToggleABCommand}" IsVisible="{Binding HasV110Codes}" />
+        <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      </WrapPanel>
+
+      <!-- Write a message to the display (DMP-002). -->
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Width="170" MaxLength="16" PlaceholderText="Top line" Text="{Binding MessageTop}" FontFamily="Consolas,Menlo,monospace" />
+        <TextBox Width="170" MaxLength="16" PlaceholderText="Bottom line" Text="{Binding MessageBottom}" FontFamily="Consolas,Menlo,monospace" />
+        <Button Content="Show on unit" Command="{Binding ShowTextCommand}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding Status}" Opacity="0.8" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

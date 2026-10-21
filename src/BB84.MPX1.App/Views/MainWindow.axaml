@@ -1,0 +1,264 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:BB84.MPX1.App.ViewModels"
+        xmlns:p="using:BB84.MPX1.App.ViewModels.Parameters"
+        xmlns:s="using:BB84.MPX1.App.Services"
+        xmlns:v="using:BB84.MPX1.App.Views"
+        x:Class="BB84.MPX1.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        x:CompileBindings="True"
+        Title="{x:Static vm:MainWindowViewModel.Title}"
+        Width="1180" Height="760" MinWidth="760" MinHeight="480">
+
+  <Window.Resources>
+    <!-- Compact tab headers so all center tabs fit on one row. -->
+    <x:Double x:Key="TabItemHeaderFontSize">15</x:Double>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TabControl > TabItem">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+  </Window.Styles>
+
+  <Window.DataTemplates>
+    <!-- Parameter editors chosen by ParameterEditorFactory (UI-004). -->
+    <DataTemplate DataType="p:NumericParameterViewModel">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Value}"
+                TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="10"
+                IsEnabled="{Binding IsEditable}" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Width="130" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                       Value="{Binding Value}" Increment="1" FormatString="0" IsEnabled="{Binding IsEditable}" />
+        <ComboBox Grid.Column="2" Width="120" IsVisible="{Binding HasOptions}" ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding SelectedOption}" IsEnabled="{Binding IsEditable}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate DataType="p:ChoiceParameterViewModel">
+      <ComboBox MinWidth="200" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}"
+                IsEnabled="{Binding IsEditable}" />
+    </DataTemplate>
+
+    <DataTemplate DataType="p:ToggleParameterViewModel">
+      <ToggleSwitch IsChecked="{Binding IsOn}" IsEnabled="{Binding IsEditable}" />
+    </DataTemplate>
+
+    <DataTemplate DataType="p:TextParameterViewModel">
+      <TextBox Text="{Binding Text}" MaxLength="{Binding MaxLength}" FontFamily="Consolas,Menlo,monospace"
+               MaxWidth="320" HorizontalAlignment="Left" IsEnabled="{Binding IsEditable}" />
+    </DataTemplate>
+
+    <DataTemplate DataType="p:RateParameterViewModel">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ToggleSwitch IsChecked="{Binding IsRatio}" OnContent="Ratio" OffContent="Hz" IsEnabled="{Binding IsEditable}" />
+        <NumericUpDown Width="140" IsVisible="{Binding IsHertz}" Minimum="0" Maximum="50"
+                       Value="{Binding Hertz}" Increment="0.01" FormatString="0.00" IsEnabled="{Binding IsEditable}" />
+        <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsRatio}">
+          <ComboBox ItemsSource="{Binding RatioTerms}" SelectedItem="{Binding Numerator}" IsEnabled="{Binding IsEditable}" />
+          <TextBlock Text=":" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding RatioTerms}" SelectedItem="{Binding Denominator}" IsEnabled="{Binding IsEditable}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="p:DumpParameterViewModel">
+      <TextBlock Text="{Binding Preview}" FontFamily="Consolas,Menlo,monospace" TextTrimming="CharacterEllipsis"
+                 VerticalAlignment="Center" Opacity="0.8" />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <DockPanel>
+
+    <!-- Toolbar: MIDI setup (UI-001), connection, firmware and learning (UI-002). -->
+    <Border DockPanel.Dock="Top" Padding="8,6" BorderThickness="0,0,0,1"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
+
+        <Button ToolTip.Tip="MIDI setup">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="MIDI setup ▾" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Setup.Summary}" Opacity="0.75" />
+          </StackPanel>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <Grid x:DataType="vm:MainWindowViewModel" Width="420" RowSpacing="8" ColumnSpacing="8"
+                    ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Text="Input" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Setup.Inputs}" SelectedItem="{Binding Setup.SelectedInput}"
+                          IsEnabled="{Binding IsDisconnected}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="s:MidiPortChoice">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Grid.Row="1" Text="Output" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Setup.Outputs}" SelectedItem="{Binding Setup.SelectedOutput}"
+                          IsEnabled="{Binding IsDisconnected}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="s:MidiPortChoice">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Grid.Row="2" Text="Device ID" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="127" Increment="1" FormatString="0"
+                               Value="{Binding Setup.DeviceId}" IsEnabled="{Binding IsDisconnected}"
+                               ToolTip.Tip="0–126 addresses one unit; 127 addresses all units." />
+                <TextBlock Grid.Row="3" Text="Timeout (ms)" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Row="3" Grid.Column="1" Minimum="50" Maximum="30000" Increment="100" FormatString="0"
+                               Value="{Binding Setup.RequestTimeoutMs}" IsEnabled="{Binding IsDisconnected}" />
+                <TextBlock Grid.Row="4" Text="Retries" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="10" Increment="1" FormatString="0"
+                               Value="{Binding Setup.Retries}" IsEnabled="{Binding IsDisconnected}" />
+                <TextBlock Grid.Row="5" Text="READY timeout (ms)" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Row="5" Grid.Column="1" Minimum="100" Maximum="60000" Increment="500" FormatString="0"
+                               Value="{Binding Setup.ReadyTimeoutMs}" IsEnabled="{Binding IsDisconnected}" />
+                <TextBlock Grid.Row="6" Text="Frame gap (ms)" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Row="6" Grid.Column="1" Minimum="0" Maximum="1000" Increment="5" FormatString="0"
+                               Value="{Binding Setup.InterFrameGapMs}" IsEnabled="{Binding IsDisconnected}"
+                               ToolTip.Tip="Pause between outgoing SysEx frames, for slow MIDI interfaces." />
+                <StackPanel Grid.Row="7" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                  <Button Content="Refresh ports" Command="{Binding RefreshPortsCommand}" IsEnabled="{Binding IsDisconnected}" />
+                  <Button Content="Test connection" Command="{Binding TestConnectionCommand}" />
+                </StackPanel>
+              </Grid>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+
+        <Button Grid.Column="1" Content="Connect" Classes="accent" Command="{Binding ConnectCommand}"
+                IsVisible="{Binding IsDisconnected}" />
+        <Button Grid.Column="1" Content="Disconnect" Command="{Binding DisconnectCommand}"
+                IsVisible="{Binding IsConnected}" />
+
+        <TextBlock Grid.Column="2" Text="{Binding Firmware}" VerticalAlignment="Center" FontWeight="SemiBold" />
+
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <ProgressBar Width="160" IsVisible="{Binding Learning.IsLearning}" Minimum="0" Maximum="100"
+                       Value="{Binding Learning.Percent}" IsIndeterminate="{Binding Learning.IsIndeterminate}" />
+          <TextBlock Text="{Binding Learning.Status}" VerticalAlignment="Center" Opacity="0.8" />
+          <Button Content="Cancel" Command="{Binding CancelLearningCommand}" IsVisible="{Binding Learning.IsLearning}" />
+          <Button Content="Learn" Classes="accent" Command="{Binding LearnCommand}" IsVisible="{Binding Learning.NeedsLearning}" />
+          <Button Content="Re-learn" Command="{Binding RelearnCommand}" IsVisible="{Binding Learning.IsLearned}"
+                  ToolTip.Tip="Learn the connected firmware again and replace the cached database." />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Status bar. -->
+    <Border DockPanel.Dock="Bottom" Padding="8,4" BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <TextBlock Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis" />
+    </Border>
+
+    <!-- MIDI monitor (UI-009). -->
+    <Expander DockPanel.Dock="Bottom" IsExpanded="{Binding IsMonitorVisible}" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch" Padding="0" CornerRadius="0">
+      <Expander.Header>
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" HorizontalAlignment="Stretch">
+          <TextBlock Text="MIDI monitor" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" Content="Pause" IsChecked="{Binding Monitor.IsPaused}" />
+          <Button Grid.Column="2" Content="Clear" Command="{Binding Monitor.ClearCommand}" />
+        </Grid>
+      </Expander.Header>
+      <ListBox x:Name="MonitorList" Height="160" ItemsSource="{Binding Monitor.Entries}" FontFamily="Consolas,Menlo,monospace" FontSize="12">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:MonitorEntry">
+            <Grid ColumnDefinitions="90,20,*" ToolTip.Tip="{Binding Hex}">
+              <TextBlock Text="{Binding Time}" Opacity="0.6" />
+              <TextBlock Grid.Column="1" Text="{Binding Direction}" />
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Hex}" Opacity="0.7" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Expander>
+
+    <!-- Control tree (UI-003) | center tabs. -->
+    <Grid ColumnDefinitions="280,4,*">
+      <TreeView ItemsSource="{Binding Tree.Roots}" SelectedItem="{Binding Tree.SelectedNode}">
+        <TreeView.Styles>
+          <!-- Screen readers and UI automation identify tree items by the node name. -->
+          <Style Selector="TreeViewItem" x:DataType="vm:ControlNodeViewModel">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+          </Style>
+        </TreeView.Styles>
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate x:DataType="vm:ControlNodeViewModel" ItemsSource="{Binding Children}">
+            <TextBlock Text="{Binding Name}" ToolTip.Tip="{Binding Details}" />
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- Center tabs: Parameters (UI-004) | Librarian (UI-005) | Program (UI-006) | System (UI-008) | Front panel (UI-007). -->
+      <TabControl Grid.Column="2" SelectedIndex="{Binding SelectedTab}" Padding="0">
+        <TabItem Header="Parameters">
+            <Panel>
+              <TextBlock Text="Connect and learn a device, then pick a level in the tree."
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"
+                         IsVisible="{Binding Tree.Page, Converter={x:Static ObjectConverters.IsNull}}" />
+
+              <DockPanel IsVisible="{Binding Tree.Page, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="16,12">
+                <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="{Binding Tree.Page.Title, FallbackValue=''}" FontSize="20" FontWeight="SemiBold" />
+                    <ProgressBar IsIndeterminate="True" Width="80" VerticalAlignment="Center"
+                                 IsVisible="{Binding Tree.Page.IsLoading, FallbackValue=False}" />
+                  </StackPanel>
+                  <Border Padding="8" CornerRadius="4" Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                          IsVisible="{Binding Tree.Page.HasNotice, FallbackValue=False}">
+                    <TextBlock Text="{Binding Tree.Page.Notice, FallbackValue=''}" TextWrapping="Wrap" />
+                  </Border>
+                  <TextBlock Text="This level has no parameters of its own; pick a level below it."
+                             Opacity="0.6" IsVisible="{Binding !Tree.Page.Parameters.Count, FallbackValue=False}" />
+                </StackPanel>
+
+                <ScrollViewer>
+                  <ItemsControl ItemsSource="{Binding Tree.Page.Parameters, FallbackValue={x:Null}}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="p:ParameterViewModel">
+                        <Grid ColumnDefinitions="160,*,170" RowDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,4"
+                              ToolTip.Tip="{Binding Details}">
+                          <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                          <ContentControl Grid.Column="1" Content="{Binding}" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="2" Text="{Binding DisplayText}" VerticalAlignment="Center"
+                                     FontFamily="Consolas,Menlo,monospace" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" TextWrapping="Wrap" FontSize="12"
+                                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                     Text="{Binding Error}" IsVisible="{Binding HasError}" />
+                          <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" TextWrapping="Wrap" FontSize="12" Opacity="0.7"
+                                     Text="{Binding ReadOnlyReason}" IsVisible="{Binding ShowReadOnlyReason}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </DockPanel>
+            </Panel>
+        </TabItem>
+        <TabItem Header="Librarian">
+          <v:LibrarianView DataContext="{Binding Librarian}" />
+        </TabItem>
+        <TabItem Header="Program">
+          <v:ProgramEditorView DataContext="{Binding ProgramEditor}" />
+        </TabItem>
+        <TabItem Header="System">
+          <v:SystemView DataContext="{Binding System}" />
+        </TabItem>
+        <TabItem Header="Front panel">
+          <v:FrontPanelView DataContext="{Binding FrontPanel}" />
+        </TabItem>
+      </TabControl>
+    </Grid>
+  </DockPanel>
+</Window>

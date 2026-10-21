@@ -1,0 +1,53 @@
+name: Release
+
+# Pushing a tag such as v1.0.0 builds, tests, publishes the Native AOT win-x64 build and creates the GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Version from tag
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Restore
+        run: dotnet restore BB84.MPX1.slnx
+
+      - name: Build
+        run: dotnet build BB84.MPX1.slnx -c Release --no-restore -p:Version=$env:VERSION
+
+      # Hardware tests need a real MPX 1 and never run in CI.
+      - name: Test
+        run: dotnet test --solution BB84.MPX1.slnx -c Release --no-build -- --ignore-exit-code 8 --filter "TestCategory!=Hardware"
+
+      - name: Package (Native AOT, win-x64)
+        shell: pwsh
+        run: ./build/package.ps1 -Version $env:VERSION
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "artifacts/release/BB84.MPX1-$env:VERSION-win-x64.zip"
+          $pre = if ($env:VERSION -like '*-*') { '--prerelease' } else { $null }
+          gh release create '${{ github.ref_name }}' $zip "$zip.sha256" `
+            --title "BB84.MPX1 $env:VERSION" --notes-file artifacts/release/release-notes.md --verify-tag $pre

@@ -1,0 +1,11 @@
+<Project Sdk="MSTest.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BB84.MPX1.App\BB84.MPX1.App.csproj" />
+  </ItemGroup>
+
+</Project>

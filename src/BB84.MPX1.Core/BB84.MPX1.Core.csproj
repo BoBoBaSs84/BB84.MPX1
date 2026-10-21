@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BB84.MPX1.Core.Tests" />
+  </ItemGroup>
+
+</Project>

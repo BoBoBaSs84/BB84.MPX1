@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>BB84.MPX1</AssemblyName>
+    <RootNamespace>BB84.MPX1.App</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BB84.MPX1.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BB84.MPX1.Core\BB84.MPX1.Core.csproj" />
+    <ProjectReference Include="..\BB84.MPX1.Midi\BB84.MPX1.Midi.csproj" />
+    <ProjectReference Include="..\BB84.MPX1.Midi.WinMM\BB84.MPX1.Midi.WinMM.csproj" />
+    <ProjectReference Include="..\BB84.MPX1.Simulator\BB84.MPX1.Simulator.csproj" />
+  </ItemGroup>
+
+</Project>

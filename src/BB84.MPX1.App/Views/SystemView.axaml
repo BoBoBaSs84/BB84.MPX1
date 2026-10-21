@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BB84.MPX1.App.ViewModels"
+             x:Class="BB84.MPX1.App.Views.SystemView"
+             x:DataType="vm:SystemViewModel"
+             x:CompileBindings="True">
+
+  <!-- System dump editors (UI-008). -->
+  <DockPanel Margin="12">
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Margin="0,8,0,0" Opacity="0.8" TextTrimming="CharacterEllipsis" />
+
+    <ListBox DockPanel.Dock="Left" Width="190" Margin="0,0,12,0" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:DumpSectionViewModel">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="{Binding Title}" />
+            <TextBlock Text="●" Foreground="{DynamicResource SystemFillColorCautionBrush}" IsVisible="{Binding IsDirty}" ToolTip.Tip="Not written yet" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <ContentControl Content="{Binding SelectedSection}">
+      <ContentControl.ContentTemplate>
+        <DataTemplate x:DataType="vm:DumpSectionViewModel">
+          <DockPanel>
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+              <WrapPanel.Styles>
+                <Style Selector="WrapPanel > :is(Control)">
+                  <Setter Property="Margin" Value="0,0,6,6" />
+                </Style>
+              </WrapPanel.Styles>
+              <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <ComboBox Width="150" ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" IsVisible="{Binding HasInstances}" />
+              <Button Content="Read" Command="{Binding ReadCommand}" />
+              <Button Content="Write" Classes="accent" Command="{Binding WriteCommand}" IsVisible="{Binding IsWritable}" IsEnabled="{Binding IsLoaded}" />
+              <Button Content="Import .syx…" Command="{Binding ImportCommand}" IsVisible="{Binding IsWritable}" />
+              <Button Content="Export .syx…" Command="{Binding ExportCommand}" IsEnabled="{Binding IsLoaded}" />
+            </WrapPanel>
+
+            <ScrollViewer IsVisible="{Binding IsLoaded}">
+              <ItemsControl ItemsSource="{Binding Fields}" Margin="0,0,12,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DumpFieldViewModel">
+                    <Grid ColumnDefinitions="220,260,*" ColumnSpacing="8" Margin="0,2" ToolTip.Tip="{Binding Help}">
+                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsVisible="{Binding IsChoice}" />
+                      <NumericUpDown Grid.Column="1" Minimum="{Binding Field.Minimum}" Maximum="{Binding Field.Maximum}" Increment="1" FormatString="0"
+                                     Value="{Binding Number}" IsVisible="{Binding IsNumber}" />
+                      <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsOn}" IsVisible="{Binding IsToggle}" />
+                      <TextBox Grid.Column="1" Text="{Binding Text}" MaxLength="{Binding Field.Size}" FontFamily="Consolas,Menlo,monospace" IsVisible="{Binding IsText}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Display}" VerticalAlignment="Center" Opacity="0.7" IsVisible="{Binding IsReadOnly}" />
+                      <TextBlock Grid.Column="2" Text="{Binding Display, StringFormat='Illegal stored value: {0}'}" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding IsInvalid}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </DockPanel>
+        </DataTemplate>
+      </ContentControl.ContentTemplate>
+    </ContentControl>
+  </DockPanel>
+</UserControl>

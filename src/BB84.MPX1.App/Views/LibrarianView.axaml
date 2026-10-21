@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BB84.MPX1.App.ViewModels"
+             x:Class="BB84.MPX1.App.Views.LibrarianView"
+             x:DataType="vm:LibrarianViewModel"
+             x:CompileBindings="True">
+
+  <!-- Librarian (UI-005): slot list, transfers, sort flags, backup/restore. -->
+  <DockPanel Margin="12">
+
+    <!-- Commands. -->
+    <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <WrapPanel.Styles>
+        <Style Selector="WrapPanel > Button">
+          <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+      </WrapPanel.Styles>
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" ToolTip.Tip="Read names and algorithms of all 250 programs." />
+      <Button Content="Edit" Command="{Binding EditCommand}" ToolTip.Tip="Open the selected program in the program editor." />
+      <Button Content="Load to active" Command="{Binding LoadToActiveCommand}" ToolTip.Tip="Copy the selected program into the running program." />
+      <Button Content="Rename ▾" IsEnabled="{Binding IsIdleWithSelection}">
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <StackPanel x:DataType="vm:LibrarianViewModel" Spacing="8" Width="260">
+              <TextBlock Text="New name (12 characters)" />
+              <TextBox Text="{Binding RenameText}" MaxLength="12" FontFamily="Consolas,Menlo,monospace" />
+              <Button Content="Rename" Classes="accent" HorizontalAlignment="Right" Command="{Binding RenameCommand}" />
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+      <Button Content="Import .syx…" Command="{Binding ImportCommand}" ToolTip.Tip="Store the first program of a .syx file in the selected slot." />
+      <Button Content="Export .syx…" Command="{Binding ExportCommand}" ToolTip.Tip="Save the selected program as a .syx file." />
+      <Button Content="Backup ▾" IsEnabled="{Binding IsIdle}">
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <StackPanel x:DataType="vm:LibrarianViewModel" Spacing="6" Width="260">
+              <TextBlock Text="Always included: 250 programs and the sort flags." TextWrapping="Wrap" Opacity="0.8" />
+              <ItemsControl ItemsSource="{Binding DumpOptions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DumpOptionViewModel">
+                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="Back up…" Classes="accent" HorizontalAlignment="Right" Command="{Binding BackupCommand}" />
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+      <Button Content="Restore…" Command="{Binding RestoreCommand}" ToolTip.Tip="Write a backup file back to the MPX 1 (asks first)." />
+    </WrapPanel>
+
+    <!-- Status and progress. -->
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <ProgressBar Grid.Column="1" Width="160" Minimum="0" Maximum="100" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" />
+      <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" />
+    </Grid>
+
+    <!-- Sort flags of the selected slot. -->
+    <Border DockPanel.Dock="Right" Width="230" Margin="12,0,0,0" Padding="10" CornerRadius="4"
+            BorderThickness="1" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            IsVisible="{Binding HasSelection}">
+      <ScrollViewer>
+        <StackPanel Spacing="6">
+          <TextBlock Text="Sort flags" FontWeight="SemiBold" />
+          <TextBlock Text="Effect type" Opacity="0.7" />
+          <ItemsControl ItemsSource="{Binding EffectFlags}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CategoryFlagViewModel">
+                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="Source type" Opacity="0.7" Margin="0,6,0,0" />
+          <ItemsControl ItemsSource="{Binding SourceFlags}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CategoryFlagViewModel">
+                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Button Content="Write sort flags" Classes="accent" Command="{Binding WriteFlagsCommand}" Margin="0,6,0,0"
+                  ToolTip.Tip="Send the sort flags of all programs (Database Dump)." />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Slot list. -->
+    <Grid RowDefinitions="Auto,*">
+      <Grid ColumnDefinitions="50,60,130,*,200" Margin="12,0,12,4" Opacity="0.7">
+        <TextBlock Text="#" />
+        <TextBlock Grid.Column="1" Text="Kind" />
+        <TextBlock Grid.Column="2" Text="Name" />
+        <TextBlock Grid.Column="3" Text="Algorithms" />
+        <TextBlock Grid.Column="4" Text="Sort flags" />
+      </Grid>
+      <ListBox Grid.Row="1" ItemsSource="{Binding Slots}" SelectedItem="{Binding SelectedSlot}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ProgramSlotViewModel">
+            <Grid ColumnDefinitions="50,60,130,*,200">
+              <TextBlock Text="{Binding NumberText}" FontFamily="Consolas,Menlo,monospace" />
+              <TextBlock Grid.Column="1" Text="{Binding Kind}" Opacity="0.7" />
+              <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold" FontFamily="Consolas,Menlo,monospace" />
+              <TextBlock Grid.Column="3" Text="{Binding Algorithms}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Algorithms}" />
+              <TextBlock Grid.Column="4" Text="{Binding CategoriesText}" TextTrimming="CharacterEllipsis" Opacity="0.8"
+                         ToolTip.Tip="{Binding CategoriesText}" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,7 @@
+<Project Sdk="MSTest.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BB84.MPX1.Simulator\BB84.MPX1.Simulator.csproj" />
+  </ItemGroup>
+
+</Project>

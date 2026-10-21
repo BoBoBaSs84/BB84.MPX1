@@ -37,7 +37,7 @@ jobs:
       - name: Publish (Native AOT, win-x64)
         run: dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: BB84.MPX1-win-x64
           path: |

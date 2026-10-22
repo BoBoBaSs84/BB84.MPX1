@@ -296,7 +296,7 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex) when (ex is Mpx1TimeoutException or ArgumentException)
         {
-            Status = ex is Mpx1TimeoutException ? "The device did not answer." : ex.Message;
+            Status = OperationStatus.Describe(ex);
         }
         catch (ObjectDisposedException)
         {

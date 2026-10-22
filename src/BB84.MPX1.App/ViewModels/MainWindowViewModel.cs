@@ -297,7 +297,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             Tree.Clear();
-            ParameterDatabase database = await connection.LearnAsync(new DispatchedProgress(_dispatcher, Learning.Report), force, cancel.Token);
+            ParameterDatabase database = await connection.LearnAsync(new DispatchedProgress<LearningProgress>(_dispatcher, Learning.Report), force, cancel.Token);
             string gaps = database.Gaps.IsEmpty ? "" : $", {database.Gaps.Length} unanswered addresses";
             ShowDatabase(connection, $"Learned {database.NodeCount} nodes{gaps}");
             StatusMessage = $"Learned {connection.Version}: {database.Descriptions.Count} parameter types, {database.NodeCount} nodes.";
@@ -389,11 +389,5 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
             .FirstOrDefault()?.InformationalVersion;
         return informational is null ? "dev" : informational.Split('+')[0];
-    }
-
-    /// <summary>Reports progress on the UI thread, in order.</summary>
-    private sealed class DispatchedProgress(IUiDispatcher dispatcher, Action<LearningProgress> report) : IProgress<LearningProgress>
-    {
-        public void Report(LearningProgress value) => dispatcher.Post(() => report(value));
     }
 }

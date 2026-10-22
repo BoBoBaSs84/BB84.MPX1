@@ -1,3 +1,5 @@
+using BB84.MPX1.Core.Protocol;
+
 namespace BB84.MPX1.Midi.WinMM.Tests;
 
 [TestClass]
@@ -95,7 +97,7 @@ public sealed class WinMMMidiTransportTests
     }
 
     [TestMethod]
-    [TestCategory("Hardware")]
+    [TestCategory("LoopMidi")]
     [Description("TRN-002, TRN-003: a SysEx frame sent to the loopback port is received unchanged")]
     public async Task Loopback_RoundTripsFrame()
     {
@@ -108,7 +110,44 @@ public sealed class WinMMMidiTransportTests
     }
 
     [TestMethod]
-    [TestCategory("Hardware")]
+    [TestCategory("LoopMidi")]
+    [Description("TRN-002, PRO-017: an encoded protocol message survives the wire and decodes to the same bytes")]
+    public async Task Loopback_ProtocolMessage_DecodesToSameBytes()
+    {
+        await using WinMMMidiTransport transport = await OpenLoopbackAsync(TestContext.CancellationToken);
+        byte[] frame = Mpx1Codec.Encode(new Handshake(DeviceId.All, HandshakeCommand.ImAlive));
+
+        await transport.SendSysExAsync(frame, TestContext.CancellationToken);
+
+        byte[] received = await ReceiveSysExAsync(transport);
+        CollectionAssert.AreEqual(frame, Mpx1Codec.Encode(Mpx1Codec.Decode(received)));
+    }
+
+    [TestMethod]
+    [TestCategory("LoopMidi")]
+    [Description("TRN-002: a short message sent to the loopback port is received unchanged")]
+    public async Task Loopback_RoundTripsShortMessage()
+    {
+        await using WinMMMidiTransport transport = await OpenLoopbackAsync(TestContext.CancellationToken);
+        const int noteOn = 0x90 | (0x3C << 8) | (0x7F << 16);
+
+        await transport.SendShortAsync(noteOn, TestContext.CancellationToken);
+
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        await foreach (MidiInput input in transport.ReadAllAsync(timeout.Token))
+        {
+            if (input is ShortInput received)
+            {
+                Assert.AreEqual(noteOn, received.Message);
+                return;
+            }
+        }
+        Assert.Fail("The transport closed before the message arrived.");
+    }
+
+    [TestMethod]
+    [TestCategory("LoopMidi")]
     [Description("TRN-003: a frame larger than one input buffer is reassembled")]
     public async Task Loopback_ReassemblesFrameLargerThanInputBuffer()
     {
@@ -121,7 +160,7 @@ public sealed class WinMMMidiTransportTests
     }
 
     [TestMethod]
-    [TestCategory("Hardware")]
+    [TestCategory("LoopMidi")]
     [Description("TRN-003: many frames in a row all arrive in order")]
     public async Task Loopback_ManyFrames_ArriveInOrder()
     {
@@ -136,7 +175,7 @@ public sealed class WinMMMidiTransportTests
     }
 
     [TestMethod]
-    [TestCategory("Hardware")]
+    [TestCategory("LoopMidi")]
     [Description("TRN-006: opening and closing repeatedly leaves no stale state")]
     public async Task Loopback_ReopenCycles_WorkEveryTime()
     {
@@ -160,7 +199,7 @@ public sealed class WinMMMidiTransportTests
     }
 
     [TestMethod]
-    [TestCategory("Hardware")]
+    [TestCategory("LoopMidi")]
     [Description("TRN-006: disposing while open closes the ports, and disposing twice is harmless")]
     public async Task Loopback_Dispose_ClosesAndIsIdempotent()
     {

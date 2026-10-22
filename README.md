@@ -61,6 +61,23 @@ dotnet test --solution BB84.MPX1.slnx -c Release -- --ignore-exit-code 8 --filte
 dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 ```
 
+### Unit tests and loopMIDI
+
+Most tests run against the built-in simulator and need no MIDI hardware. The WinMM transport tests (`tests/BB84.MPX1.Midi.WinMM.Tests`, category `LoopMidi`) also exercise the real Windows MIDI path. They need a virtual loopback port:
+
+1. Install [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html).
+2. Create three ports with exactly these names, and keep loopMIDI running while you test:
+   - `loopMIDI Port` (the default name): whatever is sent to it comes back on its input. The transport tests use it as a plain echo.
+   - `loopMIDI Port Editor` and `loopMIDI Port Simulator`: the editor reads `Editor` and writes `Simulator`, and the built-in simulator does the reverse. These tests run the session, the learner and the librarian against the simulator with every frame crossing the real WinMM transport.
+
+Without the ports, these tests report as inconclusive (skipped) instead of failing, so machines without loopMIDI, and CI, still pass. The same happens when a freshly opened port pair delivers nothing in one direction, which loopMIDI does now and then. The test rig reopens the pair up to 16 times before it gives up. To run only these tests:
+
+```powershell
+dotnet test --project tests/BB84.MPX1.Midi.WinMM.Tests -c Release -- --filter "TestCategory=LoopMidi"
+```
+
+Tests in the `Hardware` category need a real MPX 1 and are excluded from the default run.
+
 The architecture, protocol details and requirements are in [the specification](spec/spec-architecture-mpx1-sysex-editor.md). Delivery milestones are in [the roadmap](docs/roadmap.md).
 
 ## Status

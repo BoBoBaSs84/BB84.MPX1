@@ -89,9 +89,15 @@ public sealed class DeviceConnection : IAsyncDisposable
         }
         catch
         {
-            if (session is not null)
-                await session.DisposeAsync().ConfigureAwait(false);
-            await transport.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                if (session is not null)
+                    await session.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                await transport.DisposeAsync().ConfigureAwait(false);
+            }
             throw;
         }
     }
@@ -123,8 +129,15 @@ public sealed class DeviceConnection : IAsyncDisposable
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await Session.DisposeAsync().ConfigureAwait(false);
-        await _transport.DisposeAsync().ConfigureAwait(false);
+        try
+        {
+            await Session.DisposeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // The ports must close even when the session fails to stop.
+            await _transport.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task AttachAsync(ParameterDatabase database, CancellationToken cancellationToken)

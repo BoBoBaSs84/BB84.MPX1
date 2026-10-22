@@ -94,10 +94,17 @@ public sealed partial class MonitorViewModel : ObservableObject, IDisposable
     public void Flush()
     {
         Interlocked.Exchange(ref _flushQueued, 0);
+        List<MonitorEntry> batch = [];
         while (_queue.TryDequeue(out MonitorEntry? entry))
-            Entries.Add(entry);
-        while (Entries.Count > Capacity)
+            batch.Add(entry);
+
+        // Entries that would be evicted at once are never added, so a burst raises no needless change events.
+        int skip = Math.Max(0, batch.Count - Capacity);
+        int evict = Math.Min(Entries.Count, Entries.Count + batch.Count - skip - Capacity);
+        for (int i = 0; i < evict; i++)
             Entries.RemoveAt(0);
+        for (int i = skip; i < batch.Count; i++)
+            Entries.Add(batch[i]);
     }
 
     /// <summary>Removes all entries.</summary>

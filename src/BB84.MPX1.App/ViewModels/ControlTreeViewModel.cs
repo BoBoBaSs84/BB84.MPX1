@@ -143,6 +143,10 @@ public sealed partial class ParameterPageViewModel : ObservableObject, IDisposab
         {
             Notice = "The device did not answer while reading this page.";
         }
+        catch (ObjectDisposedException)
+        {
+            // The connection closed while the page was loading.
+        }
         finally
         {
             IsLoading = false;

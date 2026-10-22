@@ -452,7 +452,7 @@ public sealed partial class LibrarianViewModel : ObservableObject
         _cancel = cancel;
         try
         {
-            Status = await work(librarian, new DispatchedProgress(_dispatcher, OnProgress), cancel.Token);
+            Status = await work(librarian, new DispatchedProgress<LibraryProgress>(_dispatcher, OnProgress), cancel.Token);
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
@@ -460,7 +460,7 @@ public sealed partial class LibrarianViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is Mpx1TimeoutException or PresetOverwriteException or IOException or ArgumentException or UnauthorizedAccessException)
         {
-            Status = ex is Mpx1TimeoutException ? "The device did not answer." : ex.Message;
+            Status = OperationStatus.Describe(ex);
         }
         finally
         {
@@ -479,10 +479,5 @@ public sealed partial class LibrarianViewModel : ObservableObject
     {
         char[] invalid = Path.GetInvalidFileNameChars();
         return new string([.. name.Trim().Select(c => invalid.Contains(c) ? '_' : c)]);
-    }
-
-    private sealed class DispatchedProgress(IUiDispatcher dispatcher, Action<LibraryProgress> report) : IProgress<LibraryProgress>
-    {
-        public void Report(LibraryProgress value) => dispatcher.Post(() => report(value));
     }
 }

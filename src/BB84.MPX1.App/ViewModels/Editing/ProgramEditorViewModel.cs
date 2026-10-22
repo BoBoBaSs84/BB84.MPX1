@@ -528,7 +528,7 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
         }
         catch (Exception ex) when (ex is Mpx1TimeoutException or PresetOverwriteException or ArgumentException)
         {
-            Status = ex is Mpx1TimeoutException ? "The device did not answer." : ex.Message;
+            Status = OperationStatus.Describe(ex);
         }
         finally
         {

@@ -253,80 +253,45 @@ public sealed class Mpx1Simulator : IMidiTransport
 
     private void HandleRequest(Request request)
     {
-        DeviceId device = Options.Device;
         try
         {
             switch (request.RequestedClass)
             {
                 case MessageClass.SystemConfiguration:
-                    Respond(new SystemConfiguration(device, _fixture.MajorVersion, _fixture.MinorVersion, _fixture.BuildTime, _fixture.BuildDate,
-                        _fixture.ParameterTypeCount, _fixture.BottomParameter, _fixture.MaxControlLevels));
+                    RespondSystemConfiguration();
                     break;
-
                 case MessageClass.ParameterType:
-                    if (_tree.TryGetValue(request.GetControlAddress(), out ushort type))
-                        Respond(new ParameterType(device, type));
+                    RespondParameterType(request);
                     break;
-
                 case MessageClass.ParameterDescription:
-                    ushort requested = request.GetWord(0);
-                    if (requested < _fixture.ParameterTypeCount)
-                        Respond(Describe(requested));
+                    RespondParameterDescription(request);
                     break;
-
                 case MessageClass.ParameterLabel:
-                    ControlAddress labelAddress = request.GetControlAddress();
-                    if (_tree.TryGetValue(labelAddress, out ushort labelType))
-                        Respond(new ParameterLabel(device, Describe(labelType).Name, labelAddress));
+                    RespondParameterLabel(request);
                     break;
-
                 case MessageClass.ParameterData:
-                    ControlAddress dataAddress = request.GetControlAddress();
-                    if (_tree.TryGetValue(dataAddress, out ushort dataType) && !Describe(dataType).IsControlLevel)
-                        Respond(new ParameterData(device, ReadValue(dataAddress, dataType), dataAddress));
+                    RespondParameterData(request);
                     break;
-
                 case MessageClass.ParameterDisplay:
-                    ControlAddress displayAddress = request.GetControlAddress();
-                    if (_tree.TryGetValue(displayAddress, out ushort displayType))
-                        Respond(new ParameterDisplay(device, FormatValue(displayAddress, displayType), displayAddress));
+                    RespondParameterDisplay(request);
                     break;
-
                 case MessageClass.Handshake:
-                    Respond(new Handshake(device, HandshakeCommand.ImAlive));
+                    Respond(new Handshake(Options.Device, HandshakeCommand.ImAlive));
                     break;
-
                 case MessageClass.DatabaseDump:
-                    Respond(new DatabaseDump(device, [.. _database]));
+                    Respond(new DatabaseDump(Options.Device, [.. _database]));
                     break;
-
                 case MessageClass.EffectParameters:
-                    EffectType effect = (EffectType)request.Arguments[0];
-                    byte algorithm = request.Arguments[1];
-                    Respond(new EffectParameters(device, effect, algorithm, EffectList(effect, algorithm)));
+                    RespondEffectParameters(request);
                     break;
-
                 case MessageClass.AllEffectParameters:
-                    ushort allNumber = request.GetWord(0);
-                    ProgramData? allProgram = ProgramOrActive(allNumber);
-                    if (allProgram is not null)
-                    {
-                        Respond(new AllEffectParameters(device, allNumber,
-                            [.. Enumerable.Range(0, ProgramData.EffectBlockCount).Select(e => EffectList((EffectType)e, allProgram.Algorithms[e]))]));
-                    }
+                    RespondAllEffectParameters(request);
                     break;
-
                 case MessageClass.ProgramInformation:
-                    ushort infoNumber = request.GetWord(0);
-                    if (infoNumber < _programs.Length)
-                        Respond(new ProgramInformation(device, infoNumber, _programs[infoNumber].Name, _programs[infoNumber].Algorithms));
+                    RespondProgramInformation(request);
                     break;
-
                 case MessageClass.ProgramDump:
-                    ushort dumpNumber = request.GetWord(0);
-                    ProgramData? dumpProgram = ProgramOrActive(dumpNumber);
-                    if (dumpProgram is not null)
-                        Respond(new ProgramDump(device, dumpNumber, dumpProgram));
+                    RespondProgramDump(request);
                     break;
             }
         }
@@ -334,6 +299,74 @@ public sealed class Mpx1Simulator : IMidiTransport
         {
             // Malformed request arguments: a real unit would ignore them.
         }
+    }
+
+    private void RespondSystemConfiguration()
+        => Respond(new SystemConfiguration(Options.Device, _fixture.MajorVersion, _fixture.MinorVersion, _fixture.BuildTime, _fixture.BuildDate,
+            _fixture.ParameterTypeCount, _fixture.BottomParameter, _fixture.MaxControlLevels));
+
+    private void RespondParameterType(Request request)
+    {
+        if (_tree.TryGetValue(request.GetControlAddress(), out ushort type))
+            Respond(new ParameterType(Options.Device, type));
+    }
+
+    private void RespondParameterDescription(Request request)
+    {
+        ushort requested = request.GetWord(0);
+        if (requested < _fixture.ParameterTypeCount)
+            Respond(Describe(requested));
+    }
+
+    private void RespondParameterLabel(Request request)
+    {
+        ControlAddress address = request.GetControlAddress();
+        if (_tree.TryGetValue(address, out ushort type))
+            Respond(new ParameterLabel(Options.Device, Describe(type).Name, address));
+    }
+
+    private void RespondParameterData(Request request)
+    {
+        ControlAddress address = request.GetControlAddress();
+        if (_tree.TryGetValue(address, out ushort type) && !Describe(type).IsControlLevel)
+            Respond(new ParameterData(Options.Device, ReadValue(address, type), address));
+    }
+
+    private void RespondParameterDisplay(Request request)
+    {
+        ControlAddress address = request.GetControlAddress();
+        if (_tree.TryGetValue(address, out ushort type))
+            Respond(new ParameterDisplay(Options.Device, FormatValue(address, type), address));
+    }
+
+    private void RespondEffectParameters(Request request)
+    {
+        EffectType effect = (EffectType)request.Arguments[0];
+        byte algorithm = request.Arguments[1];
+        Respond(new EffectParameters(Options.Device, effect, algorithm, EffectList(effect, algorithm)));
+    }
+
+    private void RespondAllEffectParameters(Request request)
+    {
+        ushort number = request.GetWord(0);
+        if (ProgramOrActive(number) is not { } program)
+            return;
+        Respond(new AllEffectParameters(Options.Device, number,
+            [.. Enumerable.Range(0, ProgramData.EffectBlockCount).Select(e => EffectList((EffectType)e, program.Algorithms[e]))]));
+    }
+
+    private void RespondProgramInformation(Request request)
+    {
+        ushort number = request.GetWord(0);
+        if (number < _programs.Length)
+            Respond(new ProgramInformation(Options.Device, number, _programs[number].Name, _programs[number].Algorithms));
+    }
+
+    private void RespondProgramDump(Request request)
+    {
+        ushort number = request.GetWord(0);
+        if (ProgramOrActive(number) is { } program)
+            Respond(new ProgramDump(Options.Device, number, program));
     }
 
     private void WriteParameter(ParameterData data)

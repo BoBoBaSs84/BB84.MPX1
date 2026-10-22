@@ -400,7 +400,7 @@ public sealed partial class SystemViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is Mpx1TimeoutException or ArgumentException or IOException)
         {
-            Status = ex is Mpx1TimeoutException ? "The device did not answer." : ex.Message;
+            Status = OperationStatus.Describe(ex);
         }
         finally
         {

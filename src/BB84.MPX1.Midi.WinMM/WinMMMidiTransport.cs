@@ -92,7 +92,7 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
     }
 
     /// <inheritdoc/>
-    public unsafe ValueTask OpenAsync(MidiPortId input, MidiPortId output, CancellationToken cancellationToken = default)
+    public ValueTask OpenAsync(MidiPortId input, MidiPortId output, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         lock (_openLock)
@@ -112,28 +112,8 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
 
             try
             {
-                nint handle;
-                delegate* unmanaged<nint, uint, nint, nint, nint, void> callback = &MidiInProc;
-                Check(midiInOpen(&handle, inIndex, (nint)callback, GCHandle.ToIntPtr(_self), CALLBACK_FUNCTION), "midiInOpen", input: true);
-                _inHandle = handle;
-
-                _requeue = Channel.CreateUnbounded<nint>(new UnboundedChannelOptions { SingleReader = true });
-                _requeueWorker = Task.Run(RequeueLoopAsync, CancellationToken.None);
-
-                _inputHeaders = new nint[InputBufferCount];
-                for (int i = 0; i < InputBufferCount; i++)
-                {
-                    MidiHdr* header = (MidiHdr*)NativeMemory.AllocZeroed((nuint)sizeof(MidiHdr));
-                    header->lpData = (nint)NativeMemory.AllocZeroed(InputBufferSize);
-                    header->dwBufferLength = InputBufferSize;
-                    _inputHeaders[i] = (nint)header;
-                    Check(midiInPrepareHeader(_inHandle, header, HeaderSize), "midiInPrepareHeader", input: true);
-                    Check(midiInAddBuffer(_inHandle, header, HeaderSize), "midiInAddBuffer", input: true);
-                }
-                Check(midiInStart(_inHandle), "midiInStart", input: true);
-
-                Check(midiOutOpen(&handle, outIndex, 0, 0, CALLBACK_NULL), "midiOutOpen", input: false);
-                _outHandle = handle;
+                OpenInput(inIndex);
+                OpenOutput(outIndex);
 
                 _openInput = input;
                 _openOutput = output;
@@ -145,6 +125,41 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
             }
         }
         return ValueTask.CompletedTask;
+    }
+
+    private unsafe void OpenInput(uint index)
+    {
+        nint handle;
+        delegate* unmanaged<nint, uint, nint, nint, nint, void> callback = &MidiInProc;
+        Check(midiInOpen(&handle, index, (nint)callback, GCHandle.ToIntPtr(_self), CALLBACK_FUNCTION), "midiInOpen", input: true);
+        _inHandle = handle;
+
+        _requeue = Channel.CreateUnbounded<nint>(new UnboundedChannelOptions { SingleReader = true });
+        _requeueWorker = Task.Run(RequeueLoopAsync, CancellationToken.None);
+
+        AllocateInputBuffers();
+        Check(midiInStart(_inHandle), "midiInStart", input: true);
+    }
+
+    private unsafe void AllocateInputBuffers()
+    {
+        _inputHeaders = new nint[InputBufferCount];
+        for (int i = 0; i < InputBufferCount; i++)
+        {
+            MidiHdr* header = (MidiHdr*)NativeMemory.AllocZeroed((nuint)sizeof(MidiHdr));
+            header->lpData = (nint)NativeMemory.AllocZeroed(InputBufferSize);
+            header->dwBufferLength = InputBufferSize;
+            _inputHeaders[i] = (nint)header;
+            Check(midiInPrepareHeader(_inHandle, header, HeaderSize), "midiInPrepareHeader", input: true);
+            Check(midiInAddBuffer(_inHandle, header, HeaderSize), "midiInAddBuffer", input: true);
+        }
+    }
+
+    private unsafe void OpenOutput(uint index)
+    {
+        nint handle;
+        Check(midiOutOpen(&handle, index, 0, 0, CALLBACK_NULL), "midiOutOpen", input: false);
+        _outHandle = handle;
     }
 
     /// <inheritdoc/>
@@ -356,39 +371,11 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         _ = midiInAddBuffer(handle, header, HeaderSize);
     }
 
-    private unsafe void CloseCore()
+    private void CloseCore()
     {
         _closing = true;
 
-        if (_inHandle != 0)
-        {
-            _ = midiInStop(_inHandle);
-            _ = midiInReset(_inHandle);
-        }
-
-        _requeue?.Writer.TryComplete();
-        _requeueWorker?.Wait(TimeSpan.FromSeconds(2));
-        _requeue = null;
-        _requeueWorker = null;
-
-        bool inputClosed = true;
-        if (_inHandle != 0)
-        {
-            foreach (nint header in _inputHeaders)
-            {
-                if (header != 0)
-                    _ = midiInUnprepareHeader(_inHandle, (MidiHdr*)header, HeaderSize);
-            }
-
-            inputClosed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
-            if (!inputClosed)
-            {
-                // The driver still holds a buffer (MIDIERR_STILLPLAYING): give it back and try once more.
-                _ = midiInReset(_inHandle);
-                inputClosed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
-            }
-            _inHandle = 0;
-        }
+        bool inputClosed = CloseInput();
 
         // A driver that failed to close may still call back and write into the buffers, so leaking them
         // and the callback's GCHandle is safer than freeing them.
@@ -401,20 +388,60 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         }
         _inputHeaders = [];
 
-        if (_outHandle != 0)
-        {
-            _ = midiOutReset(_outHandle);
-            if (midiOutClose(_outHandle) != MMSYSERR_NOERROR)
-            {
-                _ = midiOutReset(_outHandle);
-                _ = midiOutClose(_outHandle);
-            }
-            _outHandle = 0;
-        }
+        CloseOutput();
 
         _openInput = null;
         _openOutput = null;
         _inbox.Writer.TryComplete();
+    }
+
+    /// <summary>Stops the input, ends the requeue worker and closes the port.</summary>
+    /// <returns><see langword="true"/> when the driver no longer owns the buffers.</returns>
+    private unsafe bool CloseInput()
+    {
+        if (_inHandle != 0)
+        {
+            _ = midiInStop(_inHandle);
+            _ = midiInReset(_inHandle);
+        }
+
+        _requeue?.Writer.TryComplete();
+        _requeueWorker?.Wait(TimeSpan.FromSeconds(2));
+        _requeue = null;
+        _requeueWorker = null;
+
+        if (_inHandle == 0)
+            return true;
+
+        foreach (nint header in _inputHeaders)
+        {
+            if (header != 0)
+                _ = midiInUnprepareHeader(_inHandle, (MidiHdr*)header, HeaderSize);
+        }
+
+        bool closed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
+        if (!closed)
+        {
+            // The driver still holds a buffer (MIDIERR_STILLPLAYING): give it back and try once more.
+            _ = midiInReset(_inHandle);
+            closed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
+        }
+        _inHandle = 0;
+        return closed;
+    }
+
+    private void CloseOutput()
+    {
+        if (_outHandle == 0)
+            return;
+
+        _ = midiOutReset(_outHandle);
+        if (midiOutClose(_outHandle) != MMSYSERR_NOERROR)
+        {
+            _ = midiOutReset(_outHandle);
+            _ = midiOutClose(_outHandle);
+        }
+        _outHandle = 0;
     }
 
     private nint RequireOutput()

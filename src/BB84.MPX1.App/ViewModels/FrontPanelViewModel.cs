@@ -78,7 +78,7 @@ public sealed class PanelButtonViewModel
 /// While the tab is visible it polls the Display and LED dumps every <see cref="PollInterval"/> and refreshes right
 /// after each button press.
 /// </summary>
-public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
+public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, IDisposable
 {
     /// <summary>Time between mirror refreshes while the tab is visible.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
@@ -176,6 +176,8 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
         if (IsAttached && IsActive)
             _ = StartAsync();
     }
+
+    void IDeviceTab.Attach(DeviceConnection connection, TimeProvider time) => Attach(connection.FrontPanel);
 
     /// <summary>Disconnects the panel and stops polling.</summary>
     public void Detach()

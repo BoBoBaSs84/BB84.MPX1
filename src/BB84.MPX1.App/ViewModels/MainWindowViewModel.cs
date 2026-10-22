@@ -21,6 +21,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private readonly IParameterDatabaseStore _databaseStore;
     private readonly IUiDispatcher _dispatcher;
     private readonly TimeProvider _time;
+    private readonly IDeviceTab[] _deviceTabs;
     private AppSettings _settings = new();
     private DeviceConnection? _connection;
     private CancellationTokenSource? _learnCancel;
@@ -45,6 +46,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         ProgramEditor = new ProgramEditorViewModel(dialogs, time);
         System = new SystemViewModel(dialogs);
         FrontPanel = new FrontPanelViewModel(dispatcher, time);
+        _deviceTabs = [Tree, Librarian, ProgramEditor, System, FrontPanel];
         Librarian.EditRequested += async (_, number) =>
         {
             SelectedTab = ProgramTab;
@@ -326,12 +328,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     private void ShowDatabase(DeviceConnection connection, string status)
     {
-        Tree.Load(connection.Database!, connection.Session, connection.Editor!, _time);
-        Librarian.Attach(connection.Librarian!, connection.Database!, connection.Session.Device);
-        ProgramEditor.SetDatabase(connection.Database);
-        ProgramEditor.SetConnection(connection.Librarian, connection.Session.Device);
-        System.Attach(connection.Dumps!, connection.Session.Device);
-        FrontPanel.Attach(connection.FrontPanel);
+        foreach (IDeviceTab tab in _deviceTabs)
+            tab.Attach(connection, _time);
         if (SelectedTab == SystemTab)
             _ = System.EnsureLoadedAsync();
         _settings = _settings with { LastDatabase = connection.Database!.Key };
@@ -345,11 +343,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     private async Task CloseConnectionAsync()
     {
-        Tree.Clear();
-        Librarian.Detach();
-        ProgramEditor.SetConnection(null, default);
-        System.Detach();
-        FrontPanel.Detach();
+        foreach (IDeviceTab tab in _deviceTabs)
+            tab.Detach();
         if (_connection is { } connection)
         {
             _connection = null;

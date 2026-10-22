@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
+using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
@@ -163,7 +164,7 @@ public sealed partial class ParameterPageViewModel : ObservableObject, IDisposab
 }
 
 /// <summary>The control-tree browser and the page for the selected level (UI-003).</summary>
-public sealed partial class ControlTreeViewModel : ObservableObject
+public sealed partial class ControlTreeViewModel : ObservableObject, IDeviceTab
 {
     private Mpx1Session? _session;
     private ParameterEditor? _editor;
@@ -195,6 +196,11 @@ public sealed partial class ControlTreeViewModel : ObservableObject
         foreach (ControlTreeNode child in database.Root.Children.Where(c => !c.IsEditable))
             Roots.Add(new ControlNodeViewModel(child));
     }
+
+    void IDeviceTab.Attach(DeviceConnection connection, TimeProvider time)
+        => Load(connection.Database!, connection.Session, connection.Editor!, time);
+
+    void IDeviceTab.Detach() => Clear();
 
     /// <summary>Removes the tree, for example after disconnecting.</summary>
     public void Clear()

@@ -311,7 +311,7 @@ public sealed partial class DumpSectionViewModel : ObservableObject
 /// The System tab (UI-008): Setups (5 stored + active), Global Patches, Bypass and Remap Controllers, and the
 /// read-only Current Choices, each with typed fields, Read/Write and <c>.syx</c> import/export.
 /// </summary>
-public sealed partial class SystemViewModel : ObservableObject
+public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
 {
     private static readonly SystemDumpKind[] Kinds =
     [
@@ -369,6 +369,9 @@ public sealed partial class SystemViewModel : ObservableObject
         IsAttached = true;
         Status = Sections.Count == 0 ? "The learned database contains no system dumps." : "Select a section; it is read from the unit.";
     }
+
+    void IDeviceTab.Attach(DeviceConnection connection, TimeProvider time)
+        => Attach(connection.Dumps!, connection.Session.Device);
 
     /// <summary>Disconnects the tab.</summary>
     public void Detach()

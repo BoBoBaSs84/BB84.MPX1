@@ -94,7 +94,7 @@ public sealed partial class ProgramSlotViewModel : ObservableObject
 /// The Librarian tab (UI-005): 250-slot list, load to active, rename, sort flags, single-program <c>.syx</c>
 /// import/export and full backup/restore (PRG-001 to PRG-007).
 /// </summary>
-public sealed partial class LibrarianViewModel : ObservableObject
+public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
 {
     private readonly IUserDialogs _dialogs;
     private readonly IUiDispatcher _dispatcher;
@@ -211,6 +211,9 @@ public sealed partial class LibrarianViewModel : ObservableObject
         IsAttached = true;
         Status = "Open the slot list with Refresh.";
     }
+
+    void IDeviceTab.Attach(DeviceConnection connection, TimeProvider time)
+        => Attach(connection.Librarian!, connection.Database!, connection.Session.Device);
 
     /// <summary>Disconnects the tab.</summary>
     public void Detach()

@@ -13,7 +13,7 @@ namespace BB84.MPX1.Midi.WinMM;
 /// Port IDs are the device names, with <c> (2)</c>, <c> (3)</c> … appended to duplicates, so they stay
 /// stable when device indices shift. MIDI clock (<c>F8</c>) and active sensing (<c>FE</c>) are dropped.
 /// </remarks>
-public sealed class WinMMMidiTransport : IMidiTransport
+public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
 {
     private const int InputBufferCount = 8;
     private const int InputBufferSize = 4096;
@@ -162,10 +162,11 @@ public sealed class WinMMMidiTransport : IMidiTransport
             throw new ArgumentException("A SysEx frame must start with F0 and end with F7.", nameof(frame));
 
         await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        nint handle = 0;
         nint header = 0;
         try
         {
-            nint handle = RequireOutput();
+            handle = RequireOutput();
             header = AllocOutputHeader(frame.Span);
             PrepareAndSend(handle, header);
 
@@ -175,10 +176,7 @@ public sealed class WinMMMidiTransport : IMidiTransport
             while (!IsDone(header))
             {
                 if (_time.GetElapsedTime(start) > timeout)
-                {
-                    _ = midiOutReset(handle);
                     throw new WinMMException("Timed out while sending SysEx.");
-                }
                 await Task.Delay(1, cancellationToken).ConfigureAwait(false);
             }
 
@@ -186,8 +184,38 @@ public sealed class WinMMMidiTransport : IMidiTransport
         }
         finally
         {
-            FreeHeader(header);
+            ReleaseOutputHeader(handle, header);
+            ReleaseSendLock();
+        }
+    }
+
+    /// <summary>
+    /// Takes a header back from the driver and frees it. A header the driver still owns (cancelled or timed-out send)
+    /// is returned by a reset first, because freeing memory the driver is reading from is undefined behavior.
+    /// </summary>
+    private static unsafe void ReleaseOutputHeader(nint handle, nint header)
+    {
+        if (header == 0)
+            return;
+        if (handle != 0)
+        {
+            if (!IsDone(header))
+                _ = midiOutReset(handle);
+            // Harmless when the header was never prepared or is already unprepared.
+            _ = midiOutUnprepareHeader(handle, (MidiHdr*)header, HeaderSize);
+        }
+        FreeHeader(header);
+    }
+
+    private void ReleaseSendLock()
+    {
+        try
+        {
             _sendLock.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The transport was disposed while the send was in flight.
         }
     }
 
@@ -236,15 +264,23 @@ public sealed class WinMMMidiTransport : IMidiTransport
             yield return input;
     }
 
+    /// <summary>Closes the ports and releases the transport. Safe to call more than once.</summary>
+    public void Dispose()
+    {
+        lock (_openLock)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            CloseCore();
+        }
+        _sendLock.Dispose();
+    }
+
     /// <inheritdoc/>
     public ValueTask DisposeAsync()
     {
-        if (_disposed)
-            return ValueTask.CompletedTask;
-        lock (_openLock)
-            CloseCore();
-        _disposed = true;
-        _sendLock.Dispose();
+        Dispose();
         return ValueTask.CompletedTask;
     }
 
@@ -335,6 +371,7 @@ public sealed class WinMMMidiTransport : IMidiTransport
         _requeue = null;
         _requeueWorker = null;
 
+        bool inputClosed = true;
         if (_inHandle != 0)
         {
             foreach (nint header in _inputHeaders)
@@ -342,23 +379,38 @@ public sealed class WinMMMidiTransport : IMidiTransport
                 if (header != 0)
                     _ = midiInUnprepareHeader(_inHandle, (MidiHdr*)header, HeaderSize);
             }
-            _ = midiInClose(_inHandle);
+
+            inputClosed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
+            if (!inputClosed)
+            {
+                // The driver still holds a buffer (MIDIERR_STILLPLAYING): give it back and try once more.
+                _ = midiInReset(_inHandle);
+                inputClosed = midiInClose(_inHandle) == MMSYSERR_NOERROR;
+            }
             _inHandle = 0;
         }
 
-        foreach (nint header in _inputHeaders)
-            FreeHeader(header);
+        // A driver that failed to close may still call back and write into the buffers, so leaking them
+        // and the callback's GCHandle is safer than freeing them.
+        if (inputClosed)
+        {
+            foreach (nint header in _inputHeaders)
+                FreeHeader(header);
+            if (_self.IsAllocated)
+                _self.Free();
+        }
         _inputHeaders = [];
 
         if (_outHandle != 0)
         {
             _ = midiOutReset(_outHandle);
-            _ = midiOutClose(_outHandle);
+            if (midiOutClose(_outHandle) != MMSYSERR_NOERROR)
+            {
+                _ = midiOutReset(_outHandle);
+                _ = midiOutClose(_outHandle);
+            }
             _outHandle = 0;
         }
-
-        if (_self.IsAllocated)
-            _self.Free();
 
         _openInput = null;
         _openOutput = null;

@@ -89,6 +89,7 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
     private ITimer? _timer;
     private byte[] _customCharacters = new byte[CustomCharacters.Size];
     private int _refreshing;
+    private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="FrontPanelViewModel"/> class.</summary>
     /// <param name="dispatcher">UI dispatcher.</param>
@@ -228,6 +229,10 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
         {
             Status = "The device did not answer the display or LED request.";
         }
+        catch (ObjectDisposedException)
+        {
+            // The connection closed while the request was in flight.
+        }
         finally
         {
             Interlocked.Exchange(ref _refreshing, 0);
@@ -235,7 +240,11 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose() => StopPolling();
+    public void Dispose()
+    {
+        _disposed = true;
+        StopPolling();
+    }
 
     partial void OnIsActiveChanged(bool value)
     {
@@ -257,10 +266,15 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
             {
                 // The display still works; custom characters show as blanks.
             }
+            catch (ObjectDisposedException)
+            {
+                // The connection closed while the request was in flight.
+                return;
+            }
         }
         await RefreshAsync();
         StopPolling();
-        if (IsActive && IsAttached)
+        if (IsActive && IsAttached && !_disposed)
             _timer = _time.CreateTimer(_ => _dispatcher.Post(() => _ = RefreshAsync()), null, PollInterval, PollInterval);
     }
 
@@ -283,6 +297,10 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDisposable
         catch (Exception ex) when (ex is Mpx1TimeoutException or ArgumentException)
         {
             Status = ex is Mpx1TimeoutException ? "The device did not answer." : ex.Message;
+        }
+        catch (ObjectDisposedException)
+        {
+            // The connection closed while the request was in flight.
         }
     }
 

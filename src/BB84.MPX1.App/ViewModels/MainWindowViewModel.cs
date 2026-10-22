@@ -252,12 +252,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     /// <summary>Saves the settings and closes the connection.</summary>
     public async ValueTask DisposeAsync()
     {
-        SaveSettings();
-        _learnCancel?.Cancel();
-        await CloseConnectionAsync();
-        Monitor.Dispose();
-        ProgramEditor.Dispose();
-        FrontPanel.Dispose();
+        try
+        {
+            SaveSettings();
+            _learnCancel?.Cancel();
+            await CloseConnectionAsync();
+        }
+        finally
+        {
+            Monitor.Dispose();
+            ProgramEditor.Dispose();
+            FrontPanel.Dispose();
+        }
     }
 
     partial void OnSelectedTabChanged(int value)

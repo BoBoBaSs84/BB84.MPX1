@@ -24,6 +24,7 @@ public sealed class Mpx1Session : IAsyncDisposable
     private TaskCompletionSource? _busyObserved;
     private long _lastSendTimestamp;
     private bool _hasSent;
+    private int _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="Mpx1Session"/> class.</summary>
     /// <param name="transport">An open transport.</param>
@@ -135,7 +136,7 @@ public sealed class Mpx1Session : IAsyncDisposable
         }
         finally
         {
-            _requestLock.Release();
+            ReleaseQuietly(_requestLock);
         }
 
         throw new Mpx1TimeoutException($"No response to {message.GetType().Name} after {attempts} attempt(s).", frame, attempts);
@@ -220,26 +221,50 @@ public sealed class Mpx1Session : IAsyncDisposable
         return new DeviceVersion(configuration.MajorVersion, configuration.MinorVersion, identity, configuration);
     }
 
-    /// <inheritdoc/>
+    /// <summary>Stops the receive loop and cancels calls that are still waiting. Safe to call more than once.</summary>
+    /// <returns>A task that completes when the receive loop has ended.</returns>
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            return;
+
         await _stop.CancelAsync().ConfigureAwait(false);
+        lock (_stateLock)
+        {
+            // Calls in flight unwind now instead of waiting for their timeout.
+            _pending?.Completion.TrySetCanceled();
+            _readyGate?.TrySetCanceled();
+            _busyObserved?.TrySetCanceled();
+        }
+
         if (_receiveLoop is not null)
         {
             try
             {
                 await _receiveLoop.ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
-                // Expected on shutdown.
+                // Cancellation is expected on shutdown. A faulted loop must not keep the locks alive,
+                // and the caller still has to close the transport.
             }
         }
-        lock (_stateLock)
-            _readyGate?.TrySetCanceled();
+
         _stop.Dispose();
         _requestLock.Dispose();
         _sendLock.Dispose();
+    }
+
+    private static void ReleaseQuietly(SemaphoreSlim gate)
+    {
+        try
+        {
+            gate.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The session was disposed while the call was in flight.
+        }
     }
 
     private static bool IsBulkWrite(Mpx1Message message)
@@ -250,6 +275,7 @@ public sealed class Mpx1Session : IAsyncDisposable
 
     private void EnsureStarted()
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
         if (_receiveLoop is null)
             throw new InvalidOperationException("Call Start() before sending.");
     }
@@ -274,10 +300,10 @@ public sealed class Mpx1Session : IAsyncDisposable
         }
         finally
         {
-            _sendLock.Release();
+            ReleaseQuietly(_sendLock);
         }
 
-        FrameTraffic?.Invoke(this, new FrameEventArgs(FrameDirection.Sent, _time.GetUtcNow(), frame, message, null));
+        Raise(FrameTraffic, new FrameEventArgs(FrameDirection.Sent, _time.GetUtcNow(), frame, message, null));
     }
 
     private async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
@@ -305,15 +331,27 @@ public sealed class Mpx1Session : IAsyncDisposable
     {
         await foreach (MidiInput input in _transport.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            switch (input)
+            try
             {
-                case SysExInput sysEx:
-                    HandleFrame(sysEx);
-                    break;
-                case ShortInput shortInput:
-                    ShortMessageReceived?.Invoke(this, new ShortMessageEventArgs(shortInput.Timestamp, shortInput.Message));
-                    break;
+                Dispatch(input);
             }
+            catch (Exception)
+            {
+                // A faulty subscriber or an undecodable frame must not end the loop: every later request would time out.
+            }
+        }
+    }
+
+    private void Dispatch(MidiInput input)
+    {
+        switch (input)
+        {
+            case SysExInput sysEx:
+                HandleFrame(sysEx);
+                break;
+            case ShortInput shortInput:
+                Raise(ShortMessageReceived, new ShortMessageEventArgs(shortInput.Timestamp, shortInput.Message));
+                break;
         }
     }
 
@@ -321,11 +359,11 @@ public sealed class Mpx1Session : IAsyncDisposable
     {
         if (!Mpx1Codec.TryDecode(input.Frame.Span, out Mpx1Message? message, out Mpx1FormatError? error))
         {
-            FrameTraffic?.Invoke(this, new FrameEventArgs(FrameDirection.Received, input.Timestamp, input.Frame, null, error));
+            Raise(FrameTraffic, new FrameEventArgs(FrameDirection.Received, input.Timestamp, input.Frame, null, error));
             return;
         }
 
-        FrameTraffic?.Invoke(this, new FrameEventArgs(FrameDirection.Received, input.Timestamp, input.Frame, message, null));
+        Raise(FrameTraffic, new FrameEventArgs(FrameDirection.Received, input.Timestamp, input.Frame, message, null));
 
         if (message is Handshake handshake && DeviceMatches(handshake))
             UpdateFlowControl(handshake.Command);
@@ -337,7 +375,25 @@ public sealed class Mpx1Session : IAsyncDisposable
         if (pending is not null && pending.Match(message) && pending.Completion.TrySetResult(message))
             return;
 
-        UnsolicitedMessage?.Invoke(this, new MessageEventArgs(message));
+        Raise(UnsolicitedMessage, new MessageEventArgs(message));
+    }
+
+    private void Raise<TArgs>(EventHandler<TArgs>? handler, TArgs args)
+    {
+        if (handler is null)
+            return;
+
+        foreach (EventHandler<TArgs> subscriber in handler.GetInvocationList())
+        {
+            try
+            {
+                subscriber(this, args);
+            }
+            catch (Exception)
+            {
+                // One faulty subscriber must neither break the other subscribers nor stop the receive loop or a send.
+            }
+        }
     }
 
     private void UpdateFlowControl(HandshakeCommand command)

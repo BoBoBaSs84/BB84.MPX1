@@ -90,7 +90,11 @@ public sealed class MidiPortCatalog(Func<IMidiTransport>? createHardware, Func<M
         }
         finally
         {
-            transport?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Port listing is synchronous; avoid blocking on DisposeAsync when the transport can close synchronously.
+            if (transport is IDisposable disposable)
+                disposable.Dispose();
+            else
+                transport?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         return result;
     }

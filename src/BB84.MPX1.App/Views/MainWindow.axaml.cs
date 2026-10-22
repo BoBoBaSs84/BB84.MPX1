@@ -50,7 +50,14 @@ public sealed partial class MainWindow : Window
         // Close the MIDI ports before the process exits, then close for real.
         e.Cancel = true;
         _closing = true;
-        await _viewModel.DisposeAsync();
-        Close();
+        try
+        {
+            await _viewModel.DisposeAsync();
+        }
+        finally
+        {
+            // A failed cleanup must not leave a window that can no longer be closed.
+            Close();
+        }
     }
 }

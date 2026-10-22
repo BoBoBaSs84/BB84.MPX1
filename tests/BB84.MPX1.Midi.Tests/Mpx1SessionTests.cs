@@ -264,6 +264,57 @@ public sealed class Mpx1SessionTests
     }
 
     [TestMethod]
+    [Description("SES-001: a throwing subscriber does not stop the receive loop or the other subscribers")]
+    public async Task Events_ThrowingSubscriber_DoesNotBreakSession()
+    {
+        var (session, device, _) = await CreateAsync(m => m is Request ? Reply(new ParameterType(Device, 0x014D)) : Nothing);
+        int healthySeen = 0;
+        session.FrameTraffic += (_, _) => throw new InvalidOperationException("subscriber bug");
+        session.FrameTraffic += (_, _) => Interlocked.Increment(ref healthySeen);
+        await using (session)
+        await using (device)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                ParameterType type = await session.RequestAsync<ParameterType>(Request.ParameterType(Device, new ControlAddress(0, 0)), TestContext.CancellationToken);
+                Assert.AreEqual((ushort)0x014D, type.Type);
+            }
+
+            Assert.IsGreaterThanOrEqualTo(4, Volatile.Read(ref healthySeen));
+        }
+    }
+
+    [TestMethod]
+    [Description("SES-001: disposing twice is harmless")]
+    public async Task DisposeAsync_CalledTwice_DoesNotThrow()
+    {
+        var (session, device, _) = await CreateAsync(_ => Nothing);
+        await using (device)
+        {
+            await session.DisposeAsync();
+            await session.DisposeAsync();
+        }
+    }
+
+    [TestMethod]
+    [Description("SES-001: disposing cancels a request that is still waiting and later calls fail fast")]
+    public async Task DisposeAsync_CancelsPendingRequest()
+    {
+        var (session, device, _) = await CreateAsync(_ => Nothing, FastOptions with { RequestTimeout = TimeSpan.FromSeconds(30) });
+        await using (device)
+        {
+            Task<SystemConfiguration> pending = session.RequestAsync<SystemConfiguration>(Request.SystemConfiguration(Device), TestContext.CancellationToken);
+            await Task.Delay(50, TestContext.CancellationToken);
+
+            await session.DisposeAsync();
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => pending);
+            await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+                () => session.RequestAsync<SystemConfiguration>(Request.SystemConfiguration(Device), TestContext.CancellationToken));
+        }
+    }
+
+    [TestMethod]
     [Description("SES-001, SES-002: matcher keys; responses from another device ID are not accepted")]
     public void ResponseMatcher_Keys()
     {

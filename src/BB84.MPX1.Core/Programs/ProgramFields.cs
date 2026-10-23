@@ -106,4 +106,21 @@ public static class ProgramFields
         int db = MasterLevelToDb(stored);
         return db <= MasterLevelOff ? "Off" : $"{db.ToString(CultureInfo.InvariantCulture)}dB";
     }
+
+    /// <summary>Normalizes a program name: printable ASCII, 12 characters, space padded (PRO-007).</summary>
+    /// <param name="name">The name.</param>
+    public static string NormalizeName(string? name)
+    {
+        char[] chars = [.. (name ?? "").Select(c => c is >= ' ' and <= '~' ? c : ' ')];
+        return new string(chars).PadRight(ProgramData.NameLength)[..ProgramData.NameLength];
+    }
+
+    /// <summary>Formats sort flags: effect flags, then source flags, comma separated.</summary>
+    /// <param name="categories">The flags.</param>
+    public static string DescribeCategories(ProgramCategories categories)
+    {
+        IEnumerable<string> effects = Enum.GetValues<EffectCategories>().Where(f => f != EffectCategories.None && categories.Effects.HasFlag(f)).Select(f => f.ToString());
+        IEnumerable<string> sources = Enum.GetValues<SourceCategories>().Where(f => f != SourceCategories.None && categories.Sources.HasFlag(f)).Select(f => f.ToString());
+        return string.Join(", ", effects.Concat(sources));
+    }
 }

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Specification
+    url: https://github.com/BoBoBaSs84/BB84.MPX1/blob/main/spec/spec-architecture-mpx1-sysex-editor.md
+    about: Requirements, acceptance criteria and known inconsistencies in the MIDI document.
+  - name: Roadmap
+    url: https://github.com/BoBoBaSs84/BB84.MPX1/blob/main/docs/roadmap.md
+    about: Milestones and planned work.

@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest an idea or an improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Planned work is in the [roadmap](https://github.com/BoBoBaSs84/BB84.MPX1/blob/main/docs/roadmap.md), and requirements are in the [specification](https://github.com/BoBoBaSs84/BB84.MPX1/blob/main/spec/spec-architecture-mpx1-sysex-editor.md). Please check them first.
+        This project is a clean-room implementation. Do not paste code, text or resources from the original WazWare editor.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What do you want to do that you cannot do today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should it work?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Parameters tab
+        - Librarian tab
+        - Program tab
+        - System tab
+        - Front panel tab
+        - Learning
+        - MIDI setup / transport
+        - MIDI monitor
+        - Simulator
+        - Other platforms (macOS / Linux)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: requirement
+    attributes:
+      label: Related requirement ID
+      description: A requirement ID from the specification, if one applies.
+      placeholder: "PRG-005"
+  - type: dropdown
+    id: tester
+    attributes:
+      label: Can you test this on a real MPX 1?
+      options:
+        - "Yes, firmware V1.00"
+        - "Yes, firmware V1.10"
+        - "No"
+    validations:
+      required: true

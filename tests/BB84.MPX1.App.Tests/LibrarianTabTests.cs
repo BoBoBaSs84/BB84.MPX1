@@ -170,6 +170,39 @@ public sealed class LibrarianTabTests
     }
 
     [TestMethod]
+    [Description("UI-005, PRG-005: after a restore the selection shows the restored slot and unwritten sort flag edits are dropped")]
+    public async Task Restore_ReselectsSlotAndDropsUnsavedFlags()
+    {
+        await using MainWindowViewModel vm = await OpenLibrarianAsync();
+        LibrarianViewModel librarian = vm.Librarian;
+        await librarian.BackupAsync();
+        byte[] backup = Dialogs.Saved.Single().Contents;
+        ProgramCategories restored = Simulator.Database[230];
+
+        Select(librarian, 230);
+        librarian.RenameText = "Scratch";
+        await librarian.RenameAsync();
+        foreach (CategoryFlagViewModel flag in librarian.Flags)
+            flag.IsChecked = flag.Name is "Plate" or "Drums";
+        Assert.IsTrue(librarian.HasUnsavedFlags);
+
+        Dialogs.FileToOpen = new PickedFile("backup.syx", backup);
+        Dialogs.Answers.Enqueue(true);
+        await librarian.RestoreAsync();
+
+        Assert.AreEqual("Restored backup.syx.", librarian.Status);
+        Assert.IsFalse(librarian.HasUnsavedFlags);
+        Assert.IsFalse(librarian.WriteFlagsCommand.CanExecute(null));
+        Assert.IsNotNull(librarian.SelectedSlot);
+        Assert.AreSame(librarian.Slots[230], librarian.SelectedSlot);
+        Assert.AreEqual("User 31", librarian.SelectedSlot.Name);
+        Assert.AreEqual("User 31", librarian.RenameText);
+        Assert.AreEqual(restored, librarian.SelectedSlot.Categories);
+        Assert.AreEqual(ProgramFields.DescribeCategories(restored),
+            string.Join(", ", librarian.Flags.Where(f => f.IsChecked).Select(f => f.Name)));
+    }
+
+    [TestMethod]
     [Description("Spec 10: a full learn, edit, backup and restore cycle against the simulator runs without errors")]
     public async Task ValidationCycle_LearnEditBackupRestore()
     {

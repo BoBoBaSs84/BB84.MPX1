@@ -110,7 +110,7 @@ public sealed partial class ProgramEditorViewModel
     }
 
     partial void OnNameChanged(string value)
-        => Edit(p => p with { Name = LibrarianViewModel.NormalizeName(value) });
+        => Edit(p => p with { Name = ProgramFields.NormalizeName(value) });
 
     partial void OnTempoChanged(int value)
         => Edit(p => p with { Tempo = (ushort)Math.Clamp(value, ProgramFields.MinTempo, ProgramFields.MaxTempo) });

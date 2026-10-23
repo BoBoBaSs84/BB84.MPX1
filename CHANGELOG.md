@@ -2,6 +2,28 @@
 
 All notable changes to BB84.MPX1 are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Tests over the real WinMM path using loopMIDI virtual ports: transport round trips, large frames, open/close cycles, and the session, learner and librarian against the simulator. Without the ports, these tests report as skipped. The README explains the setup.
+- GitHub issue forms (bug report, feature request, hardware test report), a pull request template and a Contributor Covenant Code of Conduct.
+
+### Changed
+
+- Internal refactoring with no change in behavior. Large view models and the simulator are split into partial files by concern. The tabs share an `IDeviceTab` attach/detach interface. Error text and progress reporting are shared. Name normalization and sort-flag formatting moved to `ProgramFields` in Core.
+
+### Fixed
+
+- **Closing ports**: the MIDI ports are now always closed on disconnect, reconnect, a failed connect and app exit, even when stopping the session fails. Before, ports could stay open and block the next connection.
+- **App exit**: the window now closes even when cleanup fails.
+- **Session**: a faulty event subscriber or an undecodable frame no longer stops the receive loop. Before, every later request timed out. Disconnecting now cancels waiting requests at once instead of waiting for their timeout. Calls made after disconnecting fail with `ObjectDisposedException`.
+- **WinMM transport**: a cancelled or timed-out send now gets its buffer back from the driver before the buffer is freed. If the input port fails to close, it is reset and closed again. If that also fails, the buffers are deliberately leaked instead of freed while the driver still uses them.
+- **Front panel tab**: polling no longer restarts after the tab is disposed, and the tab copes with the connection closing during a request.
+- **Control tree**: loading a page copes with the connection closing during the load.
+- **MIDI monitor**: a burst of frames no longer adds entries that would be removed at once.
+- **Librarian tab**: after a restore, the same slot is selected again and the pending sort-flag edits are dropped, as Refresh already did.
+
 ## 1.0.0-Alpha - 2026-10-21
 
 First release: a SysEx editor and librarian for the Lexicon MPX 1 (firmware V1.00 and V1.10). It is a single Windows x64 executable built with Native AOT and needs no .NET installation.

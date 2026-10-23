@@ -1,0 +1,81 @@
+name: Hardware test report
+description: Report how BB84.MPX1 works with a real Lexicon MPX 1.
+title: "[Hardware]: "
+labels: ["hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Version 1.0.0-Alpha was verified against the built-in simulator only. Reports from real units feed roadmap milestone M8 (hardware validation).
+        Use the **Bug report** form for a single failure. Use this form for an overall result.
+  - type: dropdown
+    id: firmware
+    attributes:
+      label: Firmware
+      options:
+        - V1.00
+        - V1.10
+    validations:
+      required: true
+  - type: input
+    id: midi
+    attributes:
+      label: Device ID and MIDI interface
+      description: The Receive Device ID of the unit, and the MIDI interface and driver you use.
+      placeholder: "Device ID 0, Roland UM-ONE, driver 1.2"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BB84.MPX1 version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 23H2, x64"
+    validations:
+      required: true
+  - type: checkboxes
+    id: worked
+    attributes:
+      label: What worked?
+      description: Tick everything that worked as expected. Leave the rest unticked and describe it below.
+      options:
+        - label: Connect and Test connection
+        - label: Learn (first connection with this firmware)
+        - label: Live parameter editing
+        - label: "Librarian: load a program and import or export a `.syx` file"
+        - label: "Librarian: backup and restore"
+        - label: System dumps (setups, Global Patches, Bypass, Remap Controllers)
+        - label: Virtual front panel (display, LEDs, buttons, encoder)
+        - label: "Program editor: edit and Store"
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - Everything worked
+        - Partly worked
+        - Did not work
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What failed or looked odd? Mention timeouts, frame gap settings and anything the unit did on its own.
+  - type: textarea
+    id: monitor
+    attributes:
+      label: MIDI monitor log
+      description: Frames around any failure, or a capture of the Learn run. Long logs can go in an attachment.
+      render: text
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: Drag in long monitor logs, a `.syx` file or `settings.json` if they help. Remove anything private first.

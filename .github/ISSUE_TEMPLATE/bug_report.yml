@@ -1,0 +1,100 @@
+name: Bug report
+description: Something in BB84.MPX1 does not work as expected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please search the [existing issues](https://github.com/BoBoBaSs84/BB84.MPX1/issues) first.
+        If you can, try to reproduce the problem with the built-in **MPX 1 Simulator** port and say so below.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A short description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect to ...
+        2. Open the ... tab
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error messages, and a screenshot if it helps.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Parameters tab
+        - Librarian tab
+        - Program tab
+        - System tab
+        - Front panel tab
+        - Learning
+        - MIDI setup / transport
+        - MIDI monitor
+        - Simulator
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: What were you connected to?
+      options:
+        - Real MPX 1, firmware V1.00
+        - Real MPX 1, firmware V1.10
+        - Built-in MPX 1 Simulator
+        - Not connected (offline editing)
+    validations:
+      required: true
+  - type: input
+    id: midi
+    attributes:
+      label: Device ID and MIDI interface
+      description: The Receive Device ID of the unit, and the MIDI interface and driver you use. Needed for real hardware.
+      placeholder: "Device ID 0, Roland UM-ONE, driver 1.2"
+  - type: input
+    id: version
+    attributes:
+      label: BB84.MPX1 version
+      description: The release tag or the name of the zip file you downloaded.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 23H2, x64"
+    validations:
+      required: true
+  - type: textarea
+    id: monitor
+    attributes:
+      label: MIDI monitor log
+      description: Copy the frames around the failure from the MIDI monitor. Skip this if the problem has nothing to do with MIDI.
+      render: text
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: Drag in a `.syx` file or `settings.json` if they help. Remove anything private first.

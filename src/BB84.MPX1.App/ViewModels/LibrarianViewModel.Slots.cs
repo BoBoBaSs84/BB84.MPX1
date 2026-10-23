@@ -39,11 +39,7 @@ public sealed partial class LibrarianViewModel
     [RelayCommand(CanExecute = nameof(CanRun))]
     public Task RefreshAsync() => RunAsync("Reading the program list…", async (librarian, progress, ct) =>
     {
-        IReadOnlyList<ProgramSummary> summaries = await librarian.ListAsync(progress, ct);
-        int? selected = SelectedSlot?.Number;
-        ReplaceSlots(summaries);
-        HasUnsavedFlags = false;
-        SelectedSlot = selected is int n ? Slots.FirstOrDefault(s => s.Number == n) : null;
+        ReplaceSlots(await librarian.ListAsync(progress, ct));
         return $"{Slots.Count} programs.";
     });
 
@@ -89,12 +85,19 @@ public sealed partial class LibrarianViewModel
         return $"Renamed {slot.NumberText} to \"{slot.Name}\".";
     });
 
+    /// <summary>
+    /// Replaces the slot list with what the unit reported, drops unwritten sort flag edits and selects the same
+    /// program number again, so the selection and the flag checkboxes show the new contents.
+    /// </summary>
     private void ReplaceSlots(IReadOnlyList<ProgramSummary> summaries)
     {
+        int? selected = SelectedSlot?.Number;
         Slots.Clear();
         foreach (ProgramSummary summary in summaries)
             Slots.Add(new ProgramSlotViewModel(summary, AlgorithmNames));
         IsLoaded = true;
+        HasUnsavedFlags = false;
+        SelectedSlot = selected is int n ? Slots.FirstOrDefault(s => s.Number == n) : null;
     }
 
     private async Task<bool> ConfirmPresetAsync(ProgramSlotViewModel slot, string message)

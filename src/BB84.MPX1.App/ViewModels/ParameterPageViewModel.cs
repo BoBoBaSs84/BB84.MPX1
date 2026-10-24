@@ -105,17 +105,13 @@ public sealed partial class ParameterPageViewModel : ObservableObject, IDisposab
                 await parameter.LoadAsync(cancellationToken);
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Page closed.
-        }
         catch (Mpx1TimeoutException)
         {
             Notice = "The device did not answer while reading this page.";
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
         {
-            // The connection closed while the page was loading.
+            // The page closed or the connection went away while the page was loading.
         }
         finally
         {

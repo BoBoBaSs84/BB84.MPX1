@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
 using BB84.MPX1.App.ViewModels.Parameters;
+using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
 using BB84.MPX1.Midi.Learning;
@@ -207,5 +208,62 @@ public sealed class WorkbenchTests
         Assert.IsFalse(vm.Learning.IsLearned);
         Assert.IsTrue(vm.Learning.NeedsLearning);
         Assert.AreEqual("Learning cancelled", vm.Learning.Status);
+    }
+
+    [TestMethod]
+    [Description("SES-006: disconnecting during a connection test ends the test quietly")]
+    public async Task Disconnect_DuringTestConnection_EndsQuietly()
+    {
+        await using MainWindowViewModel vm = await ConnectAndLearnAsync(CreateViewModel());
+        Simulator.Faults.DropResponses = 100;
+
+        Task ping = vm.TestConnectionAsync();
+        await vm.DisconnectAsync();
+        await ping;
+
+        Assert.IsFalse(vm.IsConnected);
+        Assert.AreEqual("Disconnected.", vm.StatusMessage);
+    }
+
+    [TestMethod]
+    [Description("UI-002, LRN-003: disconnecting during a relearn leaves nothing attached to the closed connection")]
+    public async Task Disconnect_DuringRelearn_LeavesTabsDetached()
+    {
+        await using MainWindowViewModel vm = await ConnectAndLearnAsync(CreateViewModel());
+        Simulator.Faults.DropResponses = 1000;
+
+        Task relearn = vm.RelearnAsync();
+        Assert.IsTrue(vm.Learning.IsLearning);
+        await vm.DisconnectAsync();
+        await relearn;
+
+        Assert.IsFalse(vm.IsConnected);
+        Assert.IsFalse(vm.Learning.IsLearned);
+        Assert.IsFalse(vm.Librarian.IsAttached);
+        Assert.IsEmpty(vm.Tree.Roots);
+        Assert.AreEqual("Not connected", vm.Learning.Status);
+    }
+
+    [TestMethod]
+    [Description("LRN-004: a cache that cannot be written does not lose the learned database")]
+    public async Task Learn_CacheNotWritable_StillLearns()
+    {
+        MidiPortCatalog catalog = new(createHardware: null, createSimulator: () => _created.Value = new Mpx1Simulator(options: new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) }));
+        await using MainWindowViewModel vm = new(catalog, new SettingsStore(_settingsPath), new UnwritableStore(), new ImmediateDispatcher(), Dialogs, TimeProvider.System);
+
+        await ConnectAndLearnAsync(vm);
+
+        Assert.IsTrue(vm.Librarian.IsAttached);
+        StringAssert.Contains(vm.StatusMessage, "cache");
+        StringAssert.Contains(vm.StatusMessage, "Disk full.");
+    }
+
+    private sealed class UnwritableStore : IParameterDatabaseStore
+    {
+        public Task<ParameterDatabase?> TryLoadAsync(DatabaseKey key, CancellationToken cancellationToken = default)
+            => Task.FromResult<ParameterDatabase?>(null);
+
+        public Task SaveAsync(ParameterDatabase database, CancellationToken cancellationToken = default)
+            => throw new IOException("Disk full.");
     }
 }

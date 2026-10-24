@@ -18,7 +18,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 {
     private readonly IMidiPortCatalog _catalog;
     private readonly SettingsStore _settingsStore;
-    private readonly IParameterDatabaseStore _databaseStore;
+    private readonly TolerantDatabaseStore _databaseStore;
     private readonly IUiDispatcher _dispatcher;
     private readonly TimeProvider _time;
     private readonly IDeviceTab[] _deviceTabs;
@@ -37,7 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
-        _databaseStore = databaseStore ?? throw new ArgumentNullException(nameof(databaseStore));
+        _databaseStore = new TolerantDatabaseStore(databaseStore ?? throw new ArgumentNullException(nameof(databaseStore)));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _time = time ?? throw new ArgumentNullException(nameof(time));
         Setup = new MidiSetupViewModel(catalog);
@@ -189,13 +189,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             if (await _connection.TryLoadCachedAsync())
             {
                 ShowDatabase(_connection, $"Loaded from cache ({_connection.Database!.NodeCount} nodes)");
-                StatusMessage = $"Connected to {Setup.Summary}.";
+                StatusMessage = WithCacheWarning($"Connected to {Setup.Summary}.");
             }
             else
             {
                 Learning.NeedsLearning = true;
                 Learning.Status = "Not learned yet";
-                StatusMessage = $"Connected to {Setup.Summary}. This firmware has not been learned yet: choose Learn.";
+                StatusMessage = WithCacheWarning($"Connected to {Setup.Summary}. This firmware has not been learned yet: choose Learn.");
             }
         }
         catch (Exception ex) when (ex is Mpx1TimeoutException or InvalidOperationException or ArgumentException or IOException)
@@ -224,14 +224,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(CanUseConnection))]
     public async Task TestConnectionAsync()
     {
-        if (_connection is null)
+        if (_connection is not { } connection)
             return;
         IsBusy = true;
         try
         {
-            StatusMessage = await _connection.Session.PingAsync()
+            string? status = await OperationStatus.RunAsync(async ct => await connection.Session.PingAsync(ct)
                 ? $"The MPX 1 answered (IM_ALIVE) on {Setup.Summary}."
-                : "The MPX 1 did not answer ARE_YOU_THERE.";
+                : "The MPX 1 did not answer ARE_YOU_THERE.");
+            if (status is not null && IsCurrent(connection))
+                StatusMessage = status;
         }
         finally
         {
@@ -300,9 +302,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             Tree.Clear();
             ParameterDatabase database = await connection.LearnAsync(new DispatchedProgress<LearningProgress>(_dispatcher, Learning.Report), force, cancel.Token);
+            if (!IsCurrent(connection))
+                return;
             string gaps = database.Gaps.IsEmpty ? "" : $", {database.Gaps.Length} unanswered addresses";
             ShowDatabase(connection, $"Learned {database.NodeCount} nodes{gaps}");
-            StatusMessage = $"Learned {connection.Version}: {database.Descriptions.Count} parameter types, {database.NodeCount} nodes.";
+            StatusMessage = WithCacheWarning($"Learned {connection.Version}: {database.Descriptions.Count} parameter types, {database.NodeCount} nodes.");
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException && !IsCurrent(connection))
+        {
+            // Disconnected while learning: the tabs are already detached and must stay so.
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
@@ -317,6 +325,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             Learning.Status = "Learning failed";
             Learning.NeedsLearning = true;
             StatusMessage = "The device stopped answering while learning.";
+        }
+        catch (Exception ex) when (OperationStatus.IsExpected(ex))
+        {
+            Learning.Status = "Learning failed";
+            Learning.NeedsLearning = true;
+            StatusMessage = $"Learning failed: {OperationStatus.Describe(ex)}";
         }
         finally
         {
@@ -357,6 +371,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         Learning.NeedsLearning = false;
         Learning.Status = "Not connected";
     }
+
+    // An await may end after Disconnect or a reconnect; its result must not touch the newer state.
+    private bool IsCurrent(DeviceConnection connection) => ReferenceEquals(_connection, connection);
+
+    private string WithCacheWarning(string status) => _databaseStore.LastError is { } warning ? $"{status} {warning}" : status;
 
     private void OnUnsolicitedMessage(object? sender, MessageEventArgs e)
     {

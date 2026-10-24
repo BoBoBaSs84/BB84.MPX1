@@ -2,8 +2,10 @@ using Microsoft.Extensions.Time.Testing;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
+using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
+using BB84.MPX1.Midi.Learning;
 
 namespace BB84.MPX1.App.Tests;
 
@@ -80,6 +82,36 @@ public sealed class ServiceTests
         Assert.IsNull(await OperationStatus.RunAsync(_ => throw new ObjectDisposedException("session")));
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => OperationStatus.RunAsync(_ => throw new InvalidOperationException()));
+    }
+
+    [TestMethod]
+    [Description("LRN-004: cache read and write failures become a warning instead of an error")]
+    public async Task TolerantDatabaseStore_TurnsFailuresIntoWarnings()
+    {
+        ParameterDatabaseBuilder builder = new(new DatabaseKey(1, 10, "Mar 30 1998", "17:51:03"));
+        builder.AddDescription(new ParameterDescription(new DeviceId(0), 0, "Root", 1, ParameterAttributes.ControlLevel, null, [new UnitLimit(0, 0, 0)]));
+        builder.AddNode(ControlAddress.Root, 0);
+        ParameterDatabase database = builder.Build();
+
+        TolerantDatabaseStore broken = new(new FailingStore(new UnauthorizedAccessException("Access denied.")));
+        Assert.IsNull(await broken.TryLoadAsync(database.Key, TestContext.CancellationToken));
+        StringAssert.Contains(broken.LastError, "could not be read: Access denied.");
+        await broken.SaveAsync(database, TestContext.CancellationToken);
+        StringAssert.Contains(broken.LastError, "could not be saved: Access denied.");
+
+        TolerantDatabaseStore working = new(new InMemoryParameterDatabaseStore());
+        await working.SaveAsync(database, TestContext.CancellationToken);
+        Assert.AreSame(database, await working.TryLoadAsync(database.Key, TestContext.CancellationToken));
+        Assert.IsNull(working.LastError);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => new TolerantDatabaseStore(new FailingStore(new InvalidOperationException())).SaveAsync(database, TestContext.CancellationToken));
+    }
+
+    private sealed class FailingStore(Exception failure) : IParameterDatabaseStore
+    {
+        public Task<ParameterDatabase?> TryLoadAsync(DatabaseKey key, CancellationToken cancellationToken = default) => throw failure;
+
+        public Task SaveAsync(ParameterDatabase database, CancellationToken cancellationToken = default) => throw failure;
     }
 
     [TestMethod]

@@ -96,6 +96,10 @@ public abstract partial class ParameterViewModel : ObservableObject
         {
             Error = Describe(ex);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+        {
+            // The page closed or the connection went away while reading.
+        }
     }
 
     /// <summary>Stops pending writes, for example when the page is closed.</summary>

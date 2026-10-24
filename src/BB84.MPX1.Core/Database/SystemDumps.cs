@@ -93,6 +93,21 @@ public static class SystemDumps
         return [.. database.Root.DescendantsAndSelf().Where(n => IsDump(n) && database.ValueSize(n.Type) == size && Matches(n.Name, kind))];
     }
 
+    /// <summary>Returns the dump kind a node holds, or <see langword="null"/> when it is not a known dump.</summary>
+    /// <param name="database">The learned database.</param>
+    /// <param name="node">The node.</param>
+    public static SystemDumpKind? KindOf(ParameterDatabase database, ControlTreeNode node)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+        ArgumentNullException.ThrowIfNull(node);
+        foreach (SystemDumpKind kind in Enum.GetValues<SystemDumpKind>())
+        {
+            if (Find(database, kind).Contains(node))
+                return kind;
+        }
+        return null;
+    }
+
     /// <summary>Returns <see langword="true"/> when a node holds a dump rather than a numeric parameter.</summary>
     /// <param name="node">The node.</param>
     public static bool IsDump(ControlTreeNode node)

@@ -4,6 +4,7 @@ using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Files;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
+using BB84.MPX1.Midi.Dumps;
 
 namespace BB84.MPX1.Midi.Library;
 
@@ -48,7 +49,7 @@ public sealed class PresetOverwriteException : InvalidOperationException
 /// <summary>What a backup file holds and what restoring it will write (CON-007 confirmation text).</summary>
 /// <param name="Programs">Program dumps for slots 0–249.</param>
 /// <param name="Database">The Database Dump, or <see langword="null"/>.</param>
-/// <param name="Dumps">System dumps whose address is a dump in the learned database.</param>
+/// <param name="Dumps">System dumps whose address is a dump in the learned database and whose values are legal (DMP-011).</param>
 /// <param name="Warnings">Skipped frames and messages.</param>
 public sealed record RestorePlan(ImmutableArray<ProgramDump> Programs, DatabaseDump? Database, ImmutableArray<ParameterData> Dumps, ImmutableArray<string> Warnings)
 {
@@ -182,7 +183,8 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
 
     /// <summary>
     /// Works out what a file would write: programs for valid slots, the Database Dump, and Parameter Data whose
-    /// address is a dump in the learned database with a matching size. Everything else becomes a warning.
+    /// address is a dump in the learned database with a matching size and, for documented dumps, legal values
+    /// (DMP-011). Everything else becomes a warning.
     /// </summary>
     /// <param name="content">The parsed file.</param>
     public RestorePlan Plan(SyxContent content)
@@ -207,7 +209,10 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
                     sortFlags ??= database;
                     break;
                 case ParameterData data when _database.Find(data.Address) is { } node && SystemDumps.IsDump(node) && data.Data.Length == _database.ValueSize(node.Type):
-                    dumps.Add(data);
+                    if (InvalidDumpReason(node, data) is { } reason)
+                        warnings.Add(reason);
+                    else
+                        dumps.Add(data);
                     break;
                 case ParameterData data:
                     warnings.Add($"Parameter Data at {data.Address} does not match a dump of the connected firmware; skipped.");
@@ -218,6 +223,22 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
             }
         }
         return new RestorePlan(programs.ToImmutable(), sortFlags, dumps.ToImmutable(), warnings.ToImmutable());
+    }
+
+    /// <summary>Checks a dump of a known kind against its documented layout (DMP-011); dumps of unknown kind pass.</summary>
+    private string? InvalidDumpReason(ControlTreeNode node, ParameterData data)
+    {
+        if (SystemDumps.KindOf(_database, node) is not { } kind)
+            return null;
+        try
+        {
+            DumpService.Validate(kind, data.Data.Span);
+            return null;
+        }
+        catch (ArgumentException ex)
+        {
+            return $"{SystemDumps.DisplayName(kind)} at {data.Address}: {ex.Message} Skipped.";
+        }
     }
 
     /// <summary>

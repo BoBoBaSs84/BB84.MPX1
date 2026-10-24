@@ -27,6 +27,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 - **Disconnecting during a transfer**: disconnecting while the System, Librarian, Program or Front panel tab is waiting for the unit no longer raises an error. The tab keeps its "Connect and learn a device" status instead of showing "Cancelled.".
 - **Status line errors**: every tab now reports a timeout, a protected preset, a file error or denied file access on its status line. Before, some tabs let these errors through.
 - **Parameters tab**: disconnecting while a parameter is being re-read no longer leaves a background error behind.
+- **Restore**: system dumps in a backup file that hold illegal values are skipped with a warning instead of written to the unit (DMP-011).
 
 ## 1.0.0-Alpha - 2026-10-21
 

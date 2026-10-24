@@ -63,6 +63,26 @@ public sealed class ServiceTests
     }
 
     [TestMethod]
+    [Description("UI-005, UI-008: a transfer's status is its result, a cancel, a described failure, or kept when the session closed")]
+    public async Task OperationStatus_RunAsync_MapsOutcomes()
+    {
+        Assert.AreEqual("Done.", await OperationStatus.RunAsync(_ => Task.FromResult("Done.")));
+        Assert.AreEqual(OperationStatus.DeviceDidNotAnswer, await OperationStatus.RunAsync(_ => throw new Mpx1TimeoutException("x")));
+        Assert.AreEqual("Locked.", await OperationStatus.RunAsync(_ => throw new UnauthorizedAccessException("Locked.")));
+        Assert.AreEqual("Disk full.", await OperationStatus.RunAsync(_ => throw new IOException("Disk full.")));
+
+        using CancellationTokenSource cancel = new();
+        await cancel.CancelAsync();
+        Assert.AreEqual(OperationStatus.Cancelled, await OperationStatus.RunAsync(ct => Task.FromCanceled<string>(ct), cancel.Token));
+
+        // A disposed session cancels its pending request without the caller's token, and refuses new calls.
+        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new TaskCanceledException()));
+        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new ObjectDisposedException("session")));
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => OperationStatus.RunAsync(_ => throw new InvalidOperationException()));
+    }
+
+    [TestMethod]
     [Description("UI-004: live edits are coalesced to the latest value and read back once")]
     public async Task CoalescingWriter_SendsLatestValueThenSettles()
     {

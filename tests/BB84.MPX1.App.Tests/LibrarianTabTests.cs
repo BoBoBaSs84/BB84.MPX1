@@ -248,4 +248,21 @@ public sealed class LibrarianTabTests
         Assert.IsEmpty(vm.Librarian.Slots);
         Assert.IsFalse(vm.Librarian.RefreshCommand.CanExecute(null));
     }
+
+    [TestMethod]
+    [Description("UI-005: disconnecting while a transfer is in flight ends it quietly and keeps the detached status")]
+    public async Task Disconnect_DuringTransfer_EndsQuietly()
+    {
+        await using MainWindowViewModel vm = await OpenLibrarianAsync();
+        LibrarianViewModel librarian = vm.Librarian;
+        Simulator.Faults.DropResponses = 1000;
+
+        Task refresh = librarian.RefreshAsync();
+        Assert.IsTrue(librarian.IsBusy);
+        await vm.DisconnectAsync();
+        await refresh;
+
+        Assert.IsFalse(librarian.IsBusy);
+        Assert.AreEqual("Connect and learn a device to use the librarian.", librarian.Status);
+    }
 }

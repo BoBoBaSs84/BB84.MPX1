@@ -158,4 +158,21 @@ public sealed class SystemTabTests
         Assert.IsEmpty(vm.System.Sections);
         Assert.IsFalse(vm.System.IsAttached);
     }
+
+    [TestMethod]
+    [Description("UI-008: disconnecting while a read is in flight ends the read quietly and keeps the detached status")]
+    public async Task Disconnect_DuringRead_EndsQuietly()
+    {
+        await using MainWindowViewModel vm = await OpenSystemAsync();
+        DumpSectionViewModel section = vm.System.SelectedSection!;
+        Simulator.Faults.DropResponses = 100;
+
+        Task read = section.ReadAsync();
+        await WaitAsync(() => vm.System.IsBusy);
+        await vm.DisconnectAsync();
+        await read;
+
+        Assert.IsFalse(vm.System.IsBusy);
+        Assert.AreEqual("Connect and learn a device to edit system dumps.", vm.System.Status);
+    }
 }

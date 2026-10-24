@@ -8,13 +8,6 @@ using BB84.MPX1.Midi.Editing;
 
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
-/// <summary>What a parameter editor needs from the live connection.</summary>
-/// <param name="Session">The session.</param>
-/// <param name="Editor">The parameter editor.</param>
-/// <param name="ActiveAlgorithms">The active program's algorithm numbers, Pitch through Delay.</param>
-/// <param name="Time">Time source for throttling.</param>
-public sealed record ParameterContext(Mpx1Session Session, ParameterEditor Editor, IReadOnlyList<byte> ActiveAlgorithms, TimeProvider Time);
-
 /// <summary>
 /// Base of the parameter editors shown for the leaves of a control level (UI-003, UI-004). Reads the value and
 /// the device's display text; edits are sent live through a <see cref="CoalescingWriter{T}"/>.

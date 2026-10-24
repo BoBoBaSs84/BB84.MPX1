@@ -12,6 +12,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 ### Changed
 
 - Internal refactoring with no change in behavior. Large view models and the simulator are split into partial files by concern. The tabs share an `IDeviceTab` attach/detach interface. Error text and progress reporting are shared. Name normalization and sort-flag formatting moved to `ProgramFields` in Core.
+- Internal refactoring: the App view models now have one type per file, and the tabs share one transfer runner (`OperationStatus.RunAsync`) for status text and error handling.
 
 ### Fixed
 
@@ -23,6 +24,8 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 - **Control tree**: loading a page copes with the connection closing during the load.
 - **MIDI monitor**: a burst of frames no longer adds entries that would be removed at once.
 - **Librarian tab**: after a restore, the same slot is selected again and the pending sort-flag edits are dropped, as Refresh already did.
+- **Disconnecting during a transfer**: disconnecting while the System, Librarian, Program or Front panel tab is waiting for the unit no longer raises an error. The tab keeps its "Connect and learn a device" status instead of showing "Cancelled.".
+- **Status line errors**: every tab now reports a timeout, a protected preset, a file error or denied file access on its status line. Before, some tabs let these errors through.
 
 ## 1.0.0-Alpha - 2026-10-21
 

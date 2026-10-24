@@ -10,69 +10,6 @@ using BB84.MPX1.Midi.Dumps;
 
 namespace BB84.MPX1.App.ViewModels;
 
-/// <summary>One character cell of the 2×16 display; custom characters (codes 0–7) are drawn from their bitmaps.</summary>
-public sealed partial class DisplayCellViewModel : ObservableObject
-{
-    /// <summary>Gets or sets the character as text (empty for custom characters).</summary>
-    [ObservableProperty]
-    public partial string Text { get; set; } = " ";
-
-    /// <summary>Gets or sets a value indicating whether the cell shows a custom character.</summary>
-    [ObservableProperty]
-    public partial bool IsCustom { get; set; }
-
-    /// <summary>Gets or sets the 5×8 pixels of a custom character, row by row.</summary>
-    [ObservableProperty]
-    public partial IReadOnlyList<bool> Pixels { get; set; } = [];
-}
-
-/// <summary>A single front-panel LED.</summary>
-/// <param name="led">The LED.</param>
-public sealed partial class LedViewModel(PanelLed led) : ObservableObject
-{
-    /// <summary>Gets the LED.</summary>
-    public PanelLed Led { get; } = led;
-
-    /// <summary>Gets the label.</summary>
-    public string Name { get; } = led switch
-    {
-        PanelLed.DigitalIn => "Digital in",
-        PanelLed.MidiActivity => "MIDI in",
-        _ => led.ToString(),
-    };
-
-    /// <summary>Gets or sets a value indicating whether the LED is lit.</summary>
-    [ObservableProperty]
-    public partial bool IsOn { get; set; }
-}
-
-/// <summary>A front-panel button: click = PRESS + RELEASE, hold = HOLD + RELEASE (PAR-007).</summary>
-public sealed class PanelButtonViewModel
-{
-    /// <summary>Initializes a new instance of the <see cref="PanelButtonViewModel"/> class.</summary>
-    /// <param name="button">The button.</param>
-    /// <param name="owner">The front panel.</param>
-    public PanelButtonViewModel(PanelButton button, FrontPanelViewModel owner)
-    {
-        Button = button ?? throw new ArgumentNullException(nameof(button));
-        ArgumentNullException.ThrowIfNull(owner);
-        ClickCommand = new AsyncRelayCommand(() => owner.ClickAsync(button), () => owner.IsAttached);
-        HoldCommand = new AsyncRelayCommand(() => owner.HoldAsync(button), () => owner.IsAttached);
-    }
-
-    /// <summary>Gets the button.</summary>
-    public PanelButton Button { get; }
-
-    /// <summary>Gets the label.</summary>
-    public string Name => Button.Name;
-
-    /// <summary>Gets the click command.</summary>
-    public IAsyncRelayCommand ClickCommand { get; }
-
-    /// <summary>Gets the hold command.</summary>
-    public IAsyncRelayCommand HoldCommand { get; }
-}
-
 /// <summary>
 /// The Front panel tab (UI-007): mirrors the display (with custom characters) and LEDs and drives the buttons.
 /// While the tab is visible it polls the Display and LED dumps every <see cref="PollInterval"/> and refreshes right
@@ -231,7 +168,7 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
         {
             Status = "The device did not answer the display or LED request.";
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
         {
             // The connection closed while the request was in flight.
         }
@@ -268,7 +205,7 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
             {
                 // The display still works; custom characters show as blanks.
             }
-            catch (ObjectDisposedException)
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
             {
                 // The connection closed while the request was in flight.
                 return;
@@ -290,20 +227,16 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
     {
         if (_panel is not { } panel)
             return;
-        try
+        string? status = await OperationStatus.RunAsync(async _ =>
         {
             await action(panel);
-            Status = what;
+            return what;
+        });
+        if (status is null || !IsAttached)
+            return;
+        Status = status;
+        if (ReferenceEquals(status, what))
             await RefreshAsync();
-        }
-        catch (Exception ex) when (ex is Mpx1TimeoutException or ArgumentException)
-        {
-            Status = OperationStatus.Describe(ex);
-        }
-        catch (ObjectDisposedException)
-        {
-            // The connection closed while the request was in flight.
-        }
     }
 
     private void Show(PanelSnapshot snapshot)

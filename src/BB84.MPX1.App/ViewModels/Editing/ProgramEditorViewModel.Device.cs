@@ -110,11 +110,8 @@ public sealed partial class ProgramEditorViewModel
         Status = busy;
         try
         {
-            Status = await work(librarian, CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is Mpx1TimeoutException or PresetOverwriteException or ArgumentException)
-        {
-            Status = OperationStatus.Describe(ex);
+            if (await OperationStatus.RunAsync(ct => work(librarian, ct)) is { } status && IsConnected)
+                Status = status;
         }
         finally
         {

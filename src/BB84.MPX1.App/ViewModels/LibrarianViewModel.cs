@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.Input;
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
-using BB84.MPX1.Midi;
 using BB84.MPX1.Midi.Library;
 
 namespace BB84.MPX1.App.ViewModels;
@@ -140,15 +139,9 @@ public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
         _cancel = cancel;
         try
         {
-            Status = await work(librarian, new DispatchedProgress<LibraryProgress>(_dispatcher, OnProgress), cancel.Token);
-        }
-        catch (OperationCanceledException) when (cancel.IsCancellationRequested)
-        {
-            Status = "Cancelled.";
-        }
-        catch (Exception ex) when (ex is Mpx1TimeoutException or PresetOverwriteException or IOException or ArgumentException or UnauthorizedAccessException)
-        {
-            Status = OperationStatus.Describe(ex);
+            DispatchedProgress<LibraryProgress> progress = new(_dispatcher, OnProgress);
+            if (await OperationStatus.RunAsync(ct => work(librarian, progress, ct), cancel.Token) is { } status && IsAttached)
+                Status = status;
         }
         finally
         {

@@ -161,4 +161,19 @@ public sealed class FrontPanelTests
         Assert.AreEqual((byte)0, rig.Simulator.ActiveProgram.SoftValues[0].EffectType);
         Assert.AreEqual((byte)0xFF, rig.Simulator.ActiveProgram.SoftValues[1].EffectType);
     }
+
+    [TestMethod]
+    [Description("LRN-005, DMP-011: a learned dump node maps back to its dump kind by name; other nodes map to none")]
+    public async Task KindOf_MapsDumpNodes()
+    {
+        await using Rig rig = await CreateAsync();
+        ParameterDatabase database = rig.Dumps.Database;
+
+        foreach (SystemDumpKind kind in Enum.GetValues<SystemDumpKind>())
+        {
+            foreach (ControlTreeNode node in rig.Dumps.Nodes(kind))
+                Assert.AreEqual(kind, SystemDumps.KindOf(database, node), node.Name);
+        }
+        Assert.IsNull(SystemDumps.KindOf(database, database.FindByPath("Program", "Pitch", "no effect", "Mix")!));
+    }
 }

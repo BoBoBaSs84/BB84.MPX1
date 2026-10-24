@@ -152,4 +152,22 @@ public sealed class LibrarianTests
         Assert.IsEmpty(plan.Dumps);
         Assert.HasCount(4, plan.Warnings);
     }
+
+    [TestMethod]
+    [Description("PRG-005, DMP-011: restore plans skip system dumps that hold illegal values")]
+    public async Task Plan_SkipsInvalidDumps()
+    {
+        await using Rig rig = await CreateAsync();
+        ParameterData valid = (await rig.Librarian.BackupAsync([SystemDumpKind.BypassControllers], cancellationToken: TestContext.CancellationToken))
+            .OfType<ParameterData>().Single();
+        byte[] illegal = valid.Data.ToArray();
+        illegal[0] = 0x97;
+        byte[] file = SyxFile.Write([valid, valid with { Data = illegal }]);
+
+        RestorePlan plan = rig.Librarian.Plan(SyxFile.Read(file));
+
+        Assert.HasCount(1, plan.Dumps);
+        CollectionAssert.AreEqual(valid.Data.ToArray(), plan.Dumps[0].Data.ToArray());
+        StringAssert.Contains(plan.Warnings.Single(), "illegal value");
+    }
 }

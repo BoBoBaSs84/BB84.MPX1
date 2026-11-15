@@ -21,6 +21,15 @@ public static class ControllerSources
     /// <summary>Latched foot switch 1, the first Bypass source.</summary>
     public const byte Toggle1 = 0x19;
 
+    /// <summary>
+    /// "None" as a Global Patch source stores: the value just below <see cref="Pedal"/>. The unit describes the source
+    /// with minimum <c>0x17</c> and display units <c>0x29</c>, whose minimum reads "None" (spec section 9, E11).
+    /// </summary>
+    public const byte GlobalPatchNone = Pedal - 1;
+
+    /// <summary>"None" as a Bypass source stores: the value just below <see cref="Toggle1"/> (spec section 9, E11).</summary>
+    public const byte BypassNone = Toggle1 - 1;
+
     /// <summary>Momentary foot switch 1, used as the first Tap source (spec 9, E8).</summary>
     public const byte Switch1 = 0x1C;
 

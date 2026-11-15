@@ -46,6 +46,8 @@ To try the editor without a unit, select **MPX 1 Simulator** as the input and ou
 ### MIDI setup tips
 
 - Connect the MPX 1 MIDI OUT to your interface's IN, and the interface's OUT to the MPX 1 MIDI IN. SysEx reception must be on (System > MIDI > SysEx = On on the unit).
+- The MPX 1 MIDI IN is the 7-pin DIN jack labelled **Remote/In**; it takes a normal 5-pin MIDI plug. Do not use **Thru**: the unit then hears nothing. On cable interfaces such as the USB Uno, the plug marked "To MIDI In" goes into the unit's IN.
+- If the unit answers nothing at all, the device ID may be wrong: the hardware test `DeviceInquiry_Broadcast_IsAnswered` (below) reports the ID the unit answers with.
 - If you see timeouts, check the device ID, then raise **Timeout** or set a **Frame gap** of a few milliseconds for slow interfaces.
 - **Test connection** sends ARE_YOU_THERE and reports whether the unit answered.
 
@@ -76,13 +78,27 @@ Without the ports, these tests report as inconclusive (skipped) instead of faili
 dotnet test --project tests/BB84.MPX1.Midi.WinMM.Tests -c Release -- --filter "TestCategory=LoopMidi"
 ```
 
-Tests in the `Hardware` category need a real MPX 1 and are excluded from the default run.
+### Hardware tests
+
+Tests in the `Hardware` category (`tests/BB84.MPX1.Midi.WinMM.Tests/Hardware`) run against a real MPX 1 and are excluded from the default run. Without configuration they report as skipped. Set the ports and device ID, then run them:
+
+```powershell
+$env:MPX1_MIDI_IN = 'USB Uno MIDI Interface'; $env:MPX1_MIDI_OUT = 'USB Uno MIDI Interface'; $env:MPX1_DEVICE_ID = '3'
+dotnet test --project tests/BB84.MPX1.Midi.WinMM.Tests -c Release -- --filter "TestCategory=Hardware"
+```
+
+They check inquiry, firmware, ARE_YOU_THERE, a full learn, program reads, a full backup and an empty program. Two tests write to the unit. Each saves the affected data to `artifacts/hardware/backups` first and puts it back afterwards:
+
+- `WriteSlot_RoundTripsAndRestores` writes, reads back and restores one user program: `MPX1_WRITE_SLOT`, protocol number, default 214 (front panel 215). Pick a program you have backed up; empty ("available") programs cannot be used.
+- `SystemDumps_WriteBackUnchanged` writes the setups, Global Patches, Bypass and Remap dumps back unchanged. The unit applies the active setup at once, with the same values.
+
+Optional: `MPX1_READ_SLOT`/`MPX1_READ_NAME` (a program and its expected name), `MPX1_EMPTY_SLOT` (an empty user program). Every run records its MIDI traffic to `artifacts/hardware/<test>.jsonl` and its messages to `<test>.log`. Recordings of a V1.00 unit are kept in `tests/data/hardware/v100` and replayed by `HardwareReplayTests` in the default run.
 
 The architecture, protocol details and requirements are in [the specification](spec/spec-architecture-mpx1-sysex-editor.md). Delivery milestones are in [the roadmap](docs/roadmap.md).
 
 ## Status
 
-Version 1.0.0-Alpha was verified against the built-in simulator only. Validation on real hardware is planned (roadmap M8). If you own an MPX 1 and can test, reports are welcome.
+Validated on a real MPX 1 with firmware V1.00 (roadmap M8): learn, program read and write, full backup, and system dump write-back. V1.10 has been tested against the simulator only. If you own a V1.10 unit and can test, reports are welcome.
 
 ## Legal
 

@@ -25,7 +25,7 @@ public sealed record AppSettings
     public byte DeviceId { get; init; }
 
     /// <summary>Gets the request timeout in milliseconds (SES-003).</summary>
-    public int RequestTimeoutMs { get; init; } = 1000;
+    public int RequestTimeoutMs { get; init; } = 2000;
 
     /// <summary>Gets the retry count (SES-003).</summary>
     public int Retries { get; init; } = 2;

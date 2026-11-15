@@ -55,10 +55,16 @@ public static class DumpLayouts
         Number("Global bypass level", 1, 0, 255, help: "Level of the dry signal in bypass and during program loads (raw value)."),
     ]);
 
+    /// <summary>
+    /// Gets the V1.00 Setup layout: 43 bytes, the <see cref="Setup"/> fields without "Global bypass level", which
+    /// the document lists for V1.10 only (DMP-004).
+    /// </summary>
+    public static DumpLayout SetupV100 { get; } = Build("Setup", Setup.Fields.Take(Setup.Fields.Length - 1));
+
     /// <summary>Gets the Global Patches layout: 10 sources, then 10 destinations (DMP-005).</summary>
     public static DumpLayout GlobalPatches { get; } = Build("Global Patches",
     [
-        .. Enumerable.Range(1, 10).Select(i => Controller($"Patch {i} source", ControllerSources.GlobalPatchSources)),
+        .. Enumerable.Range(1, 10).Select(i => Controller($"Patch {i} source", ControllerSources.GlobalPatchSources) with { NoneValue = ControllerSources.GlobalPatchNone }),
         .. Enumerable.Range(1, 10).Select(i => Choice($"Patch {i} destination", 1, Labels(
             "None", "Master mix", "Pitch mix", "Chorus mix", "EQ mix", "Mod mix", "Delay mix", "Reverb mix",
             "Master level", "Pitch level", "Chorus level", "EQ level", "Mod level", "Delay level", "Reverb level"))),
@@ -68,7 +74,7 @@ public static class DumpLayouts
     public static DumpLayout BypassControllers { get; } = Build("Bypass Controllers",
     [
         .. new[] { "Master", "Pitch", "Chorus", "Modulation", "EQ", "Reverb", "Delay" }
-            .Select(n => Controller($"{n} bypass", ControllerSources.BypassSources)),
+            .Select(n => Controller($"{n} bypass", ControllerSources.BypassSources) with { NoneValue = ControllerSources.BypassNone }),
     ]);
 
     /// <summary>Gets the Remap Controllers layout: one MIDI controller number per Appendix A source, 0xFF = not remapped (DMP-007).</summary>

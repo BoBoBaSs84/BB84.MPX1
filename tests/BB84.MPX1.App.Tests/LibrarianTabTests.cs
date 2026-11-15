@@ -65,7 +65,7 @@ public sealed class LibrarianTabTests
         Assert.AreEqual("Detune (M), 1-Band (M)", first.Algorithms, "Odd fixture programs load Detune (M) and 1-Band (M).");
         Assert.AreEqual("—", librarian.Slots[0].Algorithms);
         Assert.AreEqual("User", librarian.Slots[249].Kind);
-        CollectionAssert.AreEquivalent(new[] { "Setups", "Global Patches", "Bypass Controllers", "Remap Controllers" }, librarian.DumpOptions.Select(d => d.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "All setups (active and stored)", "Global Patches", "Bypass Controllers", "Remap Controllers" }, librarian.DumpOptions.Select(d => d.Name).ToArray());
     }
 
     [TestMethod]
@@ -149,7 +149,7 @@ public sealed class LibrarianTabTests
         SyxContent content = SyxFile.Read(backup);
         Assert.HasCount(250, content.Programs);
         Assert.IsNotNull(content.Database);
-        Assert.HasCount(6 + 1 + 1, content.Dumps, "Six setups, global patches and bypass; remap was not chosen.");
+        Assert.HasCount(1 + 1 + 1, content.Dumps, "All setups, global patches and bypass; remap was not chosen.");
 
         Select(librarian, 230);
         librarian.RenameText = "Scratch";

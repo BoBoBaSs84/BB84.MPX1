@@ -24,7 +24,7 @@ public static class OperationStatus
     /// <summary>Gets a value indicating whether a failure is an expected device or file outcome that belongs on the status line.</summary>
     /// <param name="exception">The failure.</param>
     public static bool IsExpected(Exception exception)
-        => exception is Mpx1TimeoutException or PresetOverwriteException or IOException or ArgumentException or UnauthorizedAccessException;
+        => exception is Mpx1TimeoutException or PresetOverwriteException or EmptyProgramException or IOException or ArgumentException or UnauthorizedAccessException;
 
     /// <summary>Runs a device or file transfer and returns the text for the status line.</summary>
     /// <param name="work">The transfer; returns its status text.</param>

@@ -1,6 +1,7 @@
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Programs;
+using BB84.MPX1.Core.Protocol;
 
 namespace BB84.MPX1.Core.Tests.Dumps;
 
@@ -23,6 +24,70 @@ public sealed class DumpTests
         Assert.AreEqual(64, SystemDumps.Size(SystemDumpKind.CustomCharacters));
         Assert.AreEqual(34, DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name").Offset, "setup_name: frame bytes 69-86.");
         Assert.AreEqual(43, DumpLayouts.Setup.Fields[^1].Offset, "Global bypass level: frame bytes 87-88.");
+    }
+
+    [TestMethod]
+    [Description("DMP-004, DMP-005, LRN-005: a V1.00 unit's abbreviated dump names and 43-byte setups are found, with the V1.00 setup layout")]
+    public void V100Dumps_AreFound()
+    {
+        // Names, types and sizes as a V1.00 unit (Nov 21 1996) reports them; the combined 258-byte setup dump is not one setup.
+        DeviceId device = new(3);
+        ParameterDescription Level(ushort type, short max) => new(device, type, "Level", 1, ParameterAttributes.ControlLevel, null, [new UnitLimit(0, max, 0)]);
+        ParameterDescription Dump(ushort type, string name, ushort size) => new(device, type, name, size, ParameterAttributes.None, null, [new UnitLimit(0, -1, 0x44)]);
+        ParameterDatabaseBuilder builder = new(new DatabaseKey(1, 0, "Nov 21 1996", "18:56:45"));
+        builder.AddDescription(Level(1, 1));
+        builder.AddDescription(Level(2, 9));
+        builder.AddDescription(Level(3, 4));
+        (ushort Type, string Name, ushort Size)[] dumps =
+        [
+            (0x0125, "CurChoics ", 72), (0x0128, "SetupDump ", 258), (0x0129, "PatchDump ", 60), (0x012A, "SftRowDmp ", 20),
+            (0x012B, "RemapDump ", 163), (0x012C, "BypCtDump ", 7), (0x012D, "GPatcDump ", 20), (0x011E, "PnlDisply ", 32),
+        ];
+        builder.AddNode(ControlAddress.Root, 1);
+        builder.AddNode(new ControlAddress(0), 2);
+        for (int i = 0; i < dumps.Length; i++)
+        {
+            builder.AddDescription(Dump(dumps[i].Type, dumps[i].Name, dumps[i].Size));
+            builder.AddNode(new ControlAddress(0, (ushort)i), dumps[i].Type);
+        }
+        builder.AddDescription(Dump(0x014C, "SetupDump ", 43));
+        builder.AddNode(new ControlAddress(1), 3);
+        for (ushort c = 0; c < 5; c++)
+            builder.AddNode(new ControlAddress(1, c), 0x014C);
+        ParameterDatabase db = builder.Build();
+
+        IReadOnlyList<ControlTreeNode> setups = SystemDumps.Find(db, SystemDumpKind.Setup);
+        Assert.HasCount(5, setups);
+        Assert.IsTrue(setups.All(n => n.Type == 0x014C));
+        Assert.AreEqual("GPatcDump", SystemDumps.Find(db, SystemDumpKind.GlobalPatches).Single().Name);
+        Assert.IsEmpty(SystemDumps.Find(db, SystemDumpKind.Patches).Where(n => n.Name == "GPatcDump"));
+        Assert.AreEqual("PatchDump", SystemDumps.Find(db, SystemDumpKind.Patches).Single().Name);
+        Assert.AreEqual("CurChoics", SystemDumps.Find(db, SystemDumpKind.CurrentChoices).Single().Name);
+        Assert.AreEqual("SftRowDmp", SystemDumps.Find(db, SystemDumpKind.SoftRow).Single().Name);
+        Assert.AreEqual("PnlDisply", SystemDumps.Find(db, SystemDumpKind.Display).Single().Name);
+
+        Assert.AreEqual(43, DumpLayouts.SetupV100.Size);
+        Assert.AreSame(DumpLayouts.SetupV100, SystemDumps.Layout(SystemDumpKind.Setup, 43));
+        Assert.AreSame(DumpLayouts.Setup, SystemDumps.Layout(SystemDumpKind.Setup, 44));
+        Assert.IsNull(SystemDumps.Layout(SystemDumpKind.Setup, 258));
+        Assert.AreEqual("Setup name", DumpLayouts.SetupV100.Fields[^1].Name);
+    }
+
+    [TestMethod]
+    [Description("DMP-005, DMP-006, DMP-011: the unit's own None values (Global Patch 0x17, Bypass 0x18) are legal and read as None")]
+    public void ControllerFields_AcceptUnitNoneValues()
+    {
+        // Bytes as a V1.00 unit returns them: Global Patch 1 source 0x17, the rest unassigned; every Bypass source 0x18.
+        byte[] global = [0x17, .. Enumerable.Repeat((byte)0xFF, 9), .. new byte[10]];
+        byte[] bypass = [.. Enumerable.Repeat((byte)0x18, 7)];
+
+        Assert.IsTrue(DumpLayouts.GlobalPatches.IsValid(global));
+        Assert.IsTrue(DumpLayouts.BypassControllers.IsValid(bypass));
+        Assert.AreEqual("None", DumpLayouts.GlobalPatches.Fields[0].Format(global));
+        Assert.AreEqual("None", DumpLayouts.BypassControllers.Fields[0].Format(bypass));
+        Assert.IsFalse(DumpLayouts.GlobalPatches.Fields[0].IsValid(0x16), "Below the None value is still illegal.");
+        Assert.IsFalse(DumpLayouts.BypassControllers.Fields[0].IsValid(0x17));
+        Assert.AreEqual("Tog1", DumpLayouts.BypassControllers.Fields[0].Format([0x19, 0, 0, 0, 0, 0, 0]), "Real sources keep their names.");
     }
 
     [TestMethod]
@@ -60,7 +125,8 @@ public sealed class DumpTests
         byte[] global = new byte[20];
         byte[] bypass = new byte[7];
 
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => globalSource.Write(global, 0x17));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => globalSource.Write(global, 0x16));
+        Assert.AreEqual(0x17, globalSource.Read(globalSource.Write(global, 0x17)), "0x17 is the unit's own None (E11).");
         Assert.AreEqual(0x18, globalSource.Read(globalSource.Write(global, 0x18)));
         Assert.AreEqual(0xFF, globalSource.Read(globalSource.Write(global, 0xFF)));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => bypassSource.Write(bypass, 0x97));

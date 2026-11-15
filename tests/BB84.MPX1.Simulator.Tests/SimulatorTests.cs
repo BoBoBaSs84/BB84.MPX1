@@ -210,7 +210,7 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
-    [Description("SIM-005, Appendix D bug 2: A:1 B:2 C:0 is a control level without children")]
+    [Description("SIM-005, Appendix D bug 2: A:1 B:2 C:0 is a control level without children; addresses below it echo its type, as on a V1.00 unit")]
     public async Task Bug2_DeadEndControlLevel()
     {
         var (session, simulator) = await CreateAsync(sessionOptions: FastOptions with { Retries = 0 });
@@ -222,8 +222,12 @@ public sealed class SimulatorTests
             ParameterDescription description = await session.RequestAsync<ParameterDescription>(Request.ParameterDescription(Device, type.Type), TestContext.CancellationToken);
 
             Assert.IsTrue(description.IsControlLevel);
+            ParameterType child = await session.RequestAsync<ParameterType>(Request.ParameterType(Device, deadEnd.Child(0)), TestContext.CancellationToken);
+            ParameterType grandchild = await session.RequestAsync<ParameterType>(Request.ParameterType(Device, deadEnd.Child(1).Child(2)), TestContext.CancellationToken);
+            Assert.AreEqual(type.Type, child.Type);
+            Assert.AreEqual(type.Type, grandchild.Type);
             await Assert.ThrowsExactlyAsync<Mpx1TimeoutException>(
-                () => session.RequestAsync<ParameterType>(Request.ParameterType(Device, deadEnd.Child(0)), TestContext.CancellationToken));
+                () => session.RequestAsync<ParameterType>(Request.ParameterType(Device, new ControlAddress(1, 2, 1, 0)), TestContext.CancellationToken));
         }
     }
 

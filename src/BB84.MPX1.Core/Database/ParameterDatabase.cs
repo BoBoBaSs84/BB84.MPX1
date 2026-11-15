@@ -40,7 +40,7 @@ public sealed class ControlTreeNode
     /// <summary>Gets a value indicating whether this node is an editable parameter (not a control level).</summary>
     public bool IsEditable => !Description.IsControlLevel;
 
-    /// <summary>Gets a value indicating whether this is a control level the walker did not descend (Appendix D bug 2).</summary>
+    /// <summary>Gets a value indicating whether this is a control level without browsable children (Appendix D bug 2, LRN-007).</summary>
     public bool IsDeadEnd { get; }
 
     internal void AddChild(ControlTreeNode child) => _children.Add(child);

@@ -168,7 +168,7 @@ public sealed class Mpx1Session : IAsyncDisposable
         try
         {
             await SendFrameAsync(frame, message, cancellationToken).ConfigureAwait(false);
-            await Task.WhenAny(busyObserved.Task, Task.Delay(Options.BusyGracePeriod, _time, cancellationToken)).ConfigureAwait(false);
+            await Task.WhenAny(busyObserved.Task, Task.Delay(Options.GetBusyWait(frame.Length), _time, cancellationToken)).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             await WaitUntilReadyAsync(cancellationToken).ConfigureAwait(false);
         }

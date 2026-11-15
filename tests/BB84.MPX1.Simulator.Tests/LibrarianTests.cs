@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
 
 using BB84.MPX1.Core.Database;
+using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Files;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
+using BB84.MPX1.Midi.Dumps;
 using BB84.MPX1.Midi.Learning;
 using BB84.MPX1.Midi.Library;
 using BB84.MPX1.Simulator.Fixtures;
@@ -104,12 +106,12 @@ public sealed class LibrarianTests
     public async Task BackupRestore_RoundTrip()
     {
         await using Rig rig = await CreateAsync();
-        CollectionAssert.AreEquivalent(SystemDumps.BackupKinds, rig.Librarian.AvailableDumps().ToArray());
+        CollectionAssert.AreEquivalent(SystemDumps.BackupKinds.Remove(SystemDumpKind.Setup), rig.Librarian.AvailableDumps().ToArray(), "All setups replace the single setups.");
         string before = Snapshot(rig.Simulator);
 
         IReadOnlyList<Mpx1Message> backup = await rig.Librarian.BackupAsync(SystemDumps.BackupKinds, cancellationToken: TestContext.CancellationToken);
         byte[] file = SyxFile.Write(backup);
-        Assert.AreEqual(1 + 250 + 6 + 3, backup.Count, "Database, 250 programs, 6 setups, global patches, bypass and remap.");
+        Assert.AreEqual(1 + 250 + 1 + 3, backup.Count, "Database, 250 programs, all setups, global patches, bypass and remap.");
 
         // Change programs, sort flags and a dump.
         ProgramData changed = rig.Simulator.GetProgram(0) with { Name = "Changed     " };
@@ -121,7 +123,7 @@ public sealed class LibrarianTests
 
         RestorePlan plan = rig.Librarian.Plan(SyxFile.Read(file));
         Assert.AreEqual(200, plan.PresetCount);
-        Assert.HasCount(9, plan.Dumps);
+        Assert.HasCount(4, plan.Dumps);
         Assert.IsEmpty(plan.Warnings);
         await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => rig.Librarian.RestoreAsync(plan, presetsConfirmed: false, cancellationToken: TestContext.CancellationToken));
 
@@ -129,6 +131,89 @@ public sealed class LibrarianTests
 
         Assert.AreEqual(before, Snapshot(rig.Simulator));
         Assert.IsFalse(rig.Simulator.IsCrashed);
+    }
+
+    [TestMethod]
+    [Description("PRG-005: a backup leaves out cleared user registers, which the unit does not dump")]
+    public async Task Backup_SkipsClearedUserPrograms()
+    {
+        await using Rig rig = await CreateAsync();
+        ProgramData program = rig.Simulator.GetProgram(203);
+        ProgramData cleared = program with { Algorithms = [ProgramData.ClearedAlgorithm, .. program.Algorithms[1..]] };
+        await rig.Librarian.StoreAsync(203, cleared, presetConfirmed: false, TestContext.CancellationToken);
+        Assert.IsTrue(await rig.Librarian.IsClearedAsync(203, TestContext.CancellationToken));
+        Assert.IsFalse(await rig.Librarian.IsClearedAsync(204, TestContext.CancellationToken));
+        rig.Sent.Clear();
+
+        IReadOnlyList<Mpx1Message> backup = await rig.Librarian.BackupAsync([], cancellationToken: TestContext.CancellationToken);
+
+        ProgramDump[] programs = [.. backup.OfType<ProgramDump>()];
+        Assert.HasCount(249, programs);
+        Assert.IsFalse(programs.Any(p => p.ProgramNumber == 203));
+        Assert.IsFalse(rig.Sent.OfType<Request>().Any(r => r.RequestedClass == MessageClass.ProgramDump && r.GetWord(0) == 203));
+        Assert.IsFalse(rig.Sent.OfType<Request>().Any(r => r.RequestedClass == MessageClass.ProgramInformation && r.GetWord(0) < ProgramSlots.FirstUser), "Presets are never cleared.");
+    }
+
+    [TestMethod]
+    [Description("PRG-001: reading an empty user register fails at once with a clear error instead of timing out")]
+    public async Task Receive_EmptySlot_ThrowsWithoutDumpRequest()
+    {
+        await using Rig rig = await CreateAsync();
+        ProgramData program = rig.Simulator.GetProgram(230);
+        await rig.Librarian.StoreAsync(230, program with { Algorithms = [ProgramData.ClearedAlgorithm, .. program.Algorithms[1..]] }, presetConfirmed: false, TestContext.CancellationToken);
+        rig.Sent.Clear();
+        long start = TimeProvider.System.GetTimestamp();
+
+        EmptyProgramException error = await Assert.ThrowsExactlyAsync<EmptyProgramException>(() => rig.Librarian.ReceiveAsync(230, TestContext.CancellationToken));
+
+        Assert.Contains("230", error.Message);
+        Assert.IsLessThan(FastOptions.RequestTimeout, TimeProvider.System.GetElapsedTime(start));
+        Assert.IsFalse(rig.Sent.OfType<Request>().Any(r => r.RequestedClass == MessageClass.ProgramDump));
+        Assert.AreEqual(rig.Simulator.GetProgram(231).Name, (await rig.Librarian.ReceiveAsync(231, TestContext.CancellationToken)).Name, "Filled user registers still read.");
+    }
+
+    [TestMethod]
+    [Description("DMP-004, PRG-005: the backup holds the all-setups dump (active setup first), restores the active setup, and skips single setups")]
+    public async Task Backup_AllSetups_RestoresActiveSetup()
+    {
+        await using Rig rig = await CreateAsync();
+        ControlAddress active = new(1, 13, 5);
+        byte[] original = rig.Simulator.GetValue(active)!;
+
+        IReadOnlyList<Mpx1Message> backup = await rig.Librarian.BackupAsync(SystemDumps.BackupKinds, cancellationToken: TestContext.CancellationToken);
+
+        ParameterData all = backup.OfType<ParameterData>().Single(d => d.Data.Length == 6 * DumpLayouts.Setup.Size);
+        CollectionAssert.AreEqual(original, SystemDumps.SplitSetups(all.Data)[0].ToArray(), "The active setup comes first.");
+        CollectionAssert.AreEqual(rig.Simulator.GetValue(new ControlAddress(1, 13, 0)), SystemDumps.SplitSetups(all.Data)[1].ToArray());
+        Assert.IsFalse(backup.OfType<ParameterData>().Any(d => d.Data.Length == DumpLayouts.Setup.Size), "No single setups.");
+
+        // Change the active setup on the unit, then restore a file that also carries a stale single setup.
+        DumpField name = DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name");
+        await rig.Session.SendAsync(new ParameterData(Device, name.WriteText(original, "Changed"), active), TestContext.CancellationToken);
+        ParameterData stale = new(Device, name.WriteText(original, "Stale"), new ControlAddress(1, 13, 1));
+        RestorePlan plan = rig.Librarian.Plan(SyxFile.Read(SyxFile.Write([.. backup, stale])));
+        Assert.IsTrue(plan.Warnings.Any(w => w.Contains("Single setup", StringComparison.Ordinal)), string.Join("; ", plan.Warnings));
+        Assert.IsFalse(plan.Dumps.Contains(stale));
+
+        await rig.Librarian.RestoreAsync(plan, presetsConfirmed: true, cancellationToken: TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(original, rig.Simulator.GetValue(active));
+        Assert.AreNotEqual("Stale", name.ReadText(rig.Simulator.GetValue(new ControlAddress(1, 13, 1))!).TrimEnd());
+        Assert.ThrowsExactly<ArgumentException>(() => DumpService.Validate(SystemDumpKind.AllSetups, new byte[6 * DumpLayouts.Setup.Size - 1]));
+    }
+
+    [TestMethod]
+    [Description("DMP-004, DMP-011: a 43-byte V1.00 setup validates against the V1.00 layout; other sizes are rejected")]
+    public void Validate_AcceptsV100Setup()
+    {
+        byte[] v110 = DefaultFixture.InitialSetup(0);
+        byte[] v100 = v110[..DumpLayouts.SetupV100.Size];
+
+        DumpService.Validate(SystemDumpKind.Setup, v110);
+        DumpService.Validate(SystemDumpKind.Setup, v100);
+        Assert.ThrowsExactly<ArgumentException>(() => DumpService.Validate(SystemDumpKind.Setup, new byte[42]));
+        v100[DumpLayouts.SetupV100.Fields.Single(f => f.Name == "Program sort mode").Offset] = 9;
+        Assert.ThrowsExactly<ArgumentException>(() => DumpService.Validate(SystemDumpKind.Setup, v100));
     }
 
     [TestMethod]

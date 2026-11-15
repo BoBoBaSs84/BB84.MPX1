@@ -63,6 +63,12 @@ public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
         Sections.Clear();
         foreach (SystemDumpKind kind in Kinds)
         {
+            // Setups go through the all-setups dump when the firmware has it (spec 9, E13).
+            if (kind == SystemDumpKind.Setup && dumps.Nodes(SystemDumpKind.AllSetups) is [var allSetups, ..])
+            {
+                Sections.Add(DumpSectionViewModel.ForAllSetups(this, allSetups));
+                continue;
+            }
             IReadOnlyList<ControlTreeNode> nodes = dumps.Nodes(kind);
             if (nodes.Count > 0)
                 Sections.Add(new DumpSectionViewModel(this, kind, nodes));
@@ -108,6 +114,20 @@ public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>Reads the all-setups dump for an export, reporting failures in <see cref="Status"/>.</summary>
+    /// <param name="node">The all-setups dump node.</param>
+    /// <returns>The dump, or <see langword="null"/> when it could not be read.</returns>
+    internal async Task<byte[]?> ReadAllSetupsAsync(ControlTreeNode node)
+    {
+        byte[]? data = null;
+        await RunAsync("Reading all setups…", async (dumps, ct) =>
+        {
+            data = await dumps.ReadAsync(node, ct);
+            return "Read all setups.";
+        });
+        return data;
     }
 
     partial void OnSelectedSectionChanged(DumpSectionViewModel? value)

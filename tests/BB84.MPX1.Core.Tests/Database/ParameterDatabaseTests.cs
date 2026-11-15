@@ -90,6 +90,30 @@ public sealed class ParameterDatabaseTests
     }
 
     [TestMethod]
+    [Description("LRN-007: a control level whose children echo its type, or that has no children, is a dead end")]
+    public void DeadEnd_DetectedByEchoOrMissingChildren()
+    {
+        ParameterDatabaseBuilder builder = SampleBuilder();
+        builder.AddNode(new ControlAddress(1, 1), 3);
+        builder.AddNode(new ControlAddress(1, 1, 0), 3);
+        builder.AddNode(new ControlAddress(1, 1, 0, 0), 3);
+        builder.AddNode(new ControlAddress(1, 1, 1), 3);
+
+        ParameterDatabase db = builder.Build();
+
+        ControlTreeNode echoing = db.Find(new ControlAddress(1, 1))!;
+        Assert.IsTrue(echoing.IsDeadEnd);
+        Assert.IsEmpty(echoing.Children);
+        Assert.IsNull(db.Find(new ControlAddress(1, 1, 0)));
+        Assert.IsFalse(db.Find(new ControlAddress(1))!.IsDeadEnd);
+        Assert.IsFalse(db.Root.IsDeadEnd);
+        Assert.IsTrue(KnownBugs.EchoesParent(new ControlAddress(1, 1, 0), 3, 3, db.Describe(3)));
+        Assert.IsFalse(KnownBugs.EchoesParent(new ControlAddress(1, 2), 3, 3, db.Describe(3)), "Only index 0 counts.");
+        Assert.IsFalse(KnownBugs.EchoesParent(new ControlAddress(1, 1, 0), 3, 4, db.Describe(4)));
+        Assert.IsFalse(KnownBugs.EchoesParent(ControlAddress.Root, null, 1, db.Describe(1)));
+    }
+
+    [TestMethod]
     [Description("LRN-008")]
     public void KnownBug3_UnloadedAlgorithm()
     {

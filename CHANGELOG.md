@@ -4,9 +4,9 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ## Unreleased
 
-## 1.0.0 - 2026-11-15
+## 1.0.1 - 2026-11-15
 
-First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) and fixes what that validation found: learning, program writes over USB MIDI interfaces, backups with empty user programs, and V1.00 system dumps.
+First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) and fixes what that validation found: learning, program writes over USB MIDI interfaces, backups with empty user programs, and V1.00 system dumps. Version 1.0.0 was never published, because GitHub refused its tag name, so this is the first release after 1.0.0-Alpha. Release builds no longer carry the "Alpha" suffix in their version.
 
 ### Added
 
@@ -20,6 +20,7 @@ First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) an
 - The default request timeout is now 2000 ms instead of 1000 ms. On a V1.00 unit the Database Dump takes 630 ms to arrive, so the old default left little room. Saved settings keep their value.
 - Internal refactoring with no change in behavior. Large view models and the simulator are split into partial files by concern. The tabs share an `IDeviceTab` attach/detach interface. Error text and progress reporting are shared. Name normalization and sort-flag formatting moved to `ProgramFields` in Core.
 - Internal refactoring: the App view models now have one type per file, and the tabs share one transfer runner (`OperationStatus.RunAsync`) for status text and error handling.
+- Internal: the version test reads the expected version from `Directory.Build.props` instead of a hard-coded `1.0.0`.
 
 ### Fixed
 

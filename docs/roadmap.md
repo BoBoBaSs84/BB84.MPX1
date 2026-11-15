@@ -22,7 +22,7 @@ Delivery plan for the clean-room Lexicon MPX 1 SysEx editor. Requirement IDs ref
 
 M8 ran on a V1.00 unit; its recordings are replayed in tests (`tests/data/hardware/v100`). V1.10 hardware has not been tested.
 
-M9 is complete except for its exit criteria that need the maintainer: pushing the `v1.0.0` tag (which runs the release workflow) and checking the zip on a clean Windows machine.
+M9 is complete except for its exit criteria that need the maintainer: pushing the `v1.0.1` tag (which runs the release workflow; GitHub refuses the `v1.0.0` tag name) and checking the zip on a clean Windows machine.
 
 ---
 
@@ -216,7 +216,7 @@ M9 is complete except for its exit criteria that need the maintainer: pushing th
 
 **Exit criteria**
 
-- Tagged `v1.0.0` release with an attached `win-x64` zip.
+- Tagged `v1.0.1` release with an attached `win-x64` zip.
 - A clean Windows machine runs the exe without installing .NET.
 
 ## P1 — Cross-platform transports (post-1.0)

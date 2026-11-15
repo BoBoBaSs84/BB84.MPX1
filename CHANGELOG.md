@@ -4,9 +4,9 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ## Unreleased
 
-## 1.0.0 - 2026-11-15
+## 1.0.1 - 2026-11-15
 
-First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) and fixes what that validation found: learning, program writes over USB MIDI interfaces, backups with empty user programs, and V1.00 system dumps.
+First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) and fixes what that validation found: learning, program writes over USB MIDI interfaces, backups with empty user programs, and V1.00 system dumps. Version 1.0.0 was never published, because GitHub refused its tag name, so this is the first release after 1.0.0-Alpha. Release builds no longer carry the "Alpha" suffix in their version.
 
 ### Added
 

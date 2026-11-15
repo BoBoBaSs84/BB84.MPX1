@@ -4,6 +4,10 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ## Unreleased
 
+## 1.0.0 - 2026-11-15
+
+First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) and fixes what that validation found: learning, program writes over USB MIDI interfaces, backups with empty user programs, and V1.00 system dumps.
+
 ### Added
 
 - Tests over the real WinMM path using loopMIDI virtual ports: transport round trips, large frames, open/close cycles, and the session, learner and librarian against the simulator. Without the ports, these tests report as skipped. The README explains the setup.

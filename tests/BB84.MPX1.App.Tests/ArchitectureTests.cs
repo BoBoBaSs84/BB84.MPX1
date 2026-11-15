@@ -54,12 +54,16 @@ public sealed partial class ArchitectureTests
     }
 
     [TestMethod]
-    [Description("M9: the build is stamped with version 1.0.0 and the window title shows it")]
+    [Description("M9: the build is stamped with the version from Directory.Build.props and the window title shows it")]
     public void Version_IsStamped()
     {
-        StringAssert.StartsWith(MainWindowViewModel.Version, "1.0.0");
+        string props = ReadFile("Directory.Build.props");
+        int Part(string name) => int.Parse(VersionPart().Matches(props).Single(m => m.Groups[1].Value == name).Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Version expected = new(Part("Major"), Part("Minor"), Part("Patch"), 0);
+
+        StringAssert.StartsWith(MainWindowViewModel.Version, expected.ToString(3));
         StringAssert.Contains(MainWindowViewModel.Title, MainWindowViewModel.Version);
-        Assert.AreEqual(new Version(1, 0, 0, 0), AppAssembly.GetName().Version);
+        Assert.AreEqual(expected, AppAssembly.GetName().Version);
     }
 
     [TestMethod]
@@ -230,6 +234,9 @@ public sealed partial class ArchitectureTests
 
     [GeneratedRegex(@"JsonSerializer\.(Serialize|Deserialize)\(")]
     private static partial Regex JsonCall();
+
+    [GeneratedRegex(@"<Version(Major|Minor|Patch)>(\d+)</Version\1>")]
+    private static partial Regex VersionPart();
 
     [GeneratedRegex(@"\b(?:PRO|TRN|SES|LRN|PAR|PRG|DMP|SIM|UI|SEC|CON|GUD|PAT|COM)-\d{3}\b|\bAC-\d{3}a?\b")]
     private static partial Regex RequirementId();

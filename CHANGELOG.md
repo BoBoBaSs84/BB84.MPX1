@@ -20,6 +20,7 @@ First stable release. It is validated on a real MPX 1 V1.00 unit (roadmap M8) an
 - The default request timeout is now 2000 ms instead of 1000 ms. On a V1.00 unit the Database Dump takes 630 ms to arrive, so the old default left little room. Saved settings keep their value.
 - Internal refactoring with no change in behavior. Large view models and the simulator are split into partial files by concern. The tabs share an `IDeviceTab` attach/detach interface. Error text and progress reporting are shared. Name normalization and sort-flag formatting moved to `ProgramFields` in Core.
 - Internal refactoring: the App view models now have one type per file, and the tabs share one transfer runner (`OperationStatus.RunAsync`) for status text and error handling.
+- Internal: the version test reads the expected version from `Directory.Build.props` instead of a hard-coded `1.0.0`.
 
 ### Fixed
 

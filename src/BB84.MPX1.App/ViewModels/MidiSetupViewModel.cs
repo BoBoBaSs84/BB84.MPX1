@@ -40,7 +40,7 @@ public sealed partial class MidiSetupViewModel : ObservableObject
 
     /// <summary>Gets or sets the request timeout in milliseconds.</summary>
     [ObservableProperty]
-    public partial int RequestTimeoutMs { get; set; } = 1000;
+    public partial int RequestTimeoutMs { get; set; } = 2000;
 
     /// <summary>Gets or sets the retry count.</summary>
     [ObservableProperty]

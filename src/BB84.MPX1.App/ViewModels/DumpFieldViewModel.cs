@@ -96,7 +96,9 @@ public sealed partial class DumpFieldViewModel : ObservableObject
             IsInvalid = !Field.IsReadOnly && !Field.IsValid(value);
             Number = value;
             IsOn = value != 0;
-            Selected = Options.FirstOrDefault(o => o.Value == value);
+            // The unit's own "None" value (for example 0x17 for Global Patch sources) shows as the "None" choice.
+            int shown = Field.Kind == DumpFieldKind.Controller && value == Field.NoneValue ? ControllerSources.Unassigned : value;
+            Selected = Options.FirstOrDefault(o => o.Value == shown);
         }
         finally
         {

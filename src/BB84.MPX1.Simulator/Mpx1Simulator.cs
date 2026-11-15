@@ -255,6 +255,10 @@ public sealed partial class Mpx1Simulator : IMidiTransport
         => address.Depth == 4 && address[0] == 0 && address[1] < ProgramData.EffectBlockCount
             && _active.Algorithms[address[1]] != address[2];
 
+    // Single-setup addresses in all-setups order: the active setup (A:1 B:13 C:5) first, then stored setups 1-5.
+    private static readonly ControlAddress[] AllSetupsOrder =
+        [new(1, 13, 5), new(1, 13, 0), new(1, 13, 1), new(1, 13, 2), new(1, 13, 3), new(1, 13, 4)];
+
     private void WriteParameter(ParameterData data)
     {
         if (!_tree.TryGetValue(data.Address, out ushort type) || Describe(type).IsControlLevel)
@@ -278,6 +282,11 @@ public sealed partial class Mpx1Simulator : IMidiTransport
             case DefaultFixture.Types.PanelButton when data.Data.Length >= 1:
                 PressButton(data.Data.Span[0]);
                 return;
+            // The all-setups dump writes the six single setups, active first (DMP-004).
+            case DefaultFixture.Types.AllSetupsDump when data.Data.Length == AllSetupsOrder.Length * DumpLayouts.Setup.Size:
+                for (int i = 0; i < AllSetupsOrder.Length; i++)
+                    _values[AllSetupsOrder[i]] = data.Data.Slice(i * DumpLayouts.Setup.Size, DumpLayouts.Setup.Size).ToArray();
+                break;
             default:
                 _values[data.Address] = data.Data.ToArray();
                 break;

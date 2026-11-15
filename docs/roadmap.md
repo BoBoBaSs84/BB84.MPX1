@@ -16,11 +16,11 @@ Delivery plan for the clean-room Lexicon MPX 1 SysEx editor. Requirement IDs ref
 | M5  | Application shell & parameter editing   | M4                               | Done         |
 | M6  | Programs, librarian & files             | M4, M5                           | Done         |
 | M7  | Full spec coverage: dumps & front panel | M5, M6                           | Done         |
-| M8  | Hardware validation (optional)          | M4+                              | Planned      |
+| M8  | Hardware validation (optional)          | M4+                              | Done (V1.00) |
 | M9  | Release 1.0                             | M7 (M8 if hardware is available) | Ready to tag |
 | P1  | Cross-platform transports (post-1.0)    | M9                               | Planned      |
 
-M8 can start as soon as hardware is available. Its captures feed back into M3 fixtures.
+M8 ran on a V1.00 unit; its recordings are replayed in tests (`tests/data/hardware/v100`). V1.10 hardware has not been tested.
 
 M9 is complete except for its exit criteria that need the maintainer: pushing the `v1.0.0` tag (which runs the release workflow) and checking the zip on a clean Windows machine.
 
@@ -187,6 +187,20 @@ M9 is complete except for its exit criteria that need the maintainer: pushing th
 - The recorded fixtures are committed under `tests/data/`.
 - Any spec corrections are logged in spec section 9.
 
+**Result (V1.00, built Nov 21 1996, via a USB Uno interface)**
+
+- The 11 `Hardware` tests pass: inquiry, firmware, ARE_YOU_THERE, learn (448 descriptions, 2,653 nodes, 95 s), program read, empty program, full backup, combined setup dump, program write/read-back/restore, and system dump write-back.
+- Recordings of learn, backup, program write, system dump write-back, firmware detection and an empty program are in `tests/data/hardware/v100` and replayed by `HardwareReplayTests`.
+- Spec corrections E10–E13 and new edge cases are in section 9: the Appendix D bug 2 address, Global Patch/Bypass "None" values, 43-byte V1.00 setups, the setup dump order and the broken single-setup reads.
+- Fixes found on hardware: dead-end detection by echo, skipping empty user programs, BUSY timing over USB interfaces, V1.00 dump names and sizes, all setups (active included) in backups and the System tab.
+- Timing (R5): replies take 17–46 ms, up to 405 ms for a Program Dump and 630 ms for the Database Dump, mostly MIDI wire time. The default request timeout is now 2000 ms.
+
+**Not done (moved out of M8)**
+
+- Full-tree simulator fixture for V1.00: the simulator's special cases (Patches, Soft Row, Panel Button, all setups) are keyed to V1.10 type numbers, which mean other dumps on V1.00. They must become fixture-driven before a V1.00 fixture works. Until then, the replay tests cover V1.00.
+- Black-box comparison with `MPX1EDIT.EXE` under otvdm/winevdm (optional; needs the maintainer).
+- Restoring a full backup on hardware: program and system dump writes were verified one by one, not as a 250-program restore.
+
 ## M9 — Release 1.0
 
 **Goal**: A downloadable, documented release.
@@ -229,7 +243,7 @@ M9 is complete except for its exit criteria that need the maintainer: pushing th
 | --- | ---------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------- |
 | R1  | Verify flattened tables in the `*.md` extraction against the PDFs (Program Dump, Setup, Current Choices, LEDs, Appendix A/B) | M1, M7    | Manual check against the PDF. Record fixes in spec section 9.                             |
 | R2  | Display-unit string tables (for example, `eq_mode_strings`) are not published                                                | M4        | Use Parameter Display (`02`) online. Capture strings from hardware in M8 for offline use. |
-| R3  | Full control tree and descriptions for V1.00 and V1.10                                                                       | M3, M8    | Start from spec examples. Replace with hardware captures.                                 |
+| R3  | Full control tree and descriptions for V1.00 and V1.10                                                                       | M3, M8    | V1.00 captured in M8 (`tests/data/hardware/v100/learn.jsonl`). V1.10 still open.          |
 | R4  | `paramall.bin` layout (MPX1EDIT cache)                                                                                       | Optional  | Analyze the file format only (no code reuse) to offer an import path, if worthwhile.      |
-| R5  | Real timing (response latency, BUSY duration, safe inter-frame gap)                                                          | M8        | Measure on hardware and with MPX1EDIT under otvdm.                                        |
+| R5  | Real timing (response latency, BUSY duration, safe inter-frame gap)                                                          | M8        | Measured on V1.00 in M8 (see M8 result). No inter-frame gap needed over USB Uno.          |
 | R6  | Compact Program Dump (`1C`) contents                                                                                         | —         | Out of scope (development-only). Pass through raw.                                        |

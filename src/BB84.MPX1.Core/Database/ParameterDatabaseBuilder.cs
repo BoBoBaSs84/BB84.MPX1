@@ -101,7 +101,7 @@ public sealed class ParameterDatabaseBuilder(DatabaseKey key)
             .Where(kv => !kv.Key.IsRoot)
             .ToLookup(kv => kv.Key.Parent());
 
-        ControlTreeNode root = CreateNode(ControlAddress.Root, rootType, null);
+        ControlTreeNode root = CreateNode(ControlAddress.Root, rootType, null, children);
         Attach(root, children);
         return new ParameterDatabase(Key, _descriptions.Values, root, [.. _gaps], _algorithms.Values);
     }
@@ -114,16 +114,28 @@ public sealed class ParameterDatabaseBuilder(DatabaseKey key)
         // Children are every recorded node one level deeper, in index order.
         foreach (KeyValuePair<ControlAddress, ushort> entry in children[parent.Address].OrderBy(kv => kv.Key[parent.Address.Depth]))
         {
-            ControlTreeNode child = CreateNode(entry.Key, entry.Value, parent);
+            ControlTreeNode child = CreateNode(entry.Key, entry.Value, parent, children);
             parent.AddChild(child);
             Attach(child, children);
         }
     }
 
-    private ControlTreeNode CreateNode(ControlAddress address, ushort type, ControlTreeNode? parent)
+    private ControlTreeNode CreateNode(ControlAddress address, ushort type, ControlTreeNode? parent, ILookup<ControlAddress, KeyValuePair<ControlAddress, ushort>> children)
     {
         ParameterDescription description = _descriptions.GetValueOrDefault(type)
             ?? throw new InvalidOperationException($"No description for parameter type 0x{type:X4} at {address}.");
-        return new ControlTreeNode(address, description, parent, KnownBugs.IsDeadEnd(address, type));
+        return new ControlTreeNode(address, description, parent, IsDeadEnd(address, description, children));
+    }
+
+    // A control level is a dead end when it is the documented one (LRN-007), when its children echo its own type
+    // (databases learned before the walker skipped them), or when the walker found no children.
+    private static bool IsDeadEnd(ControlAddress address, ParameterDescription description, ILookup<ControlAddress, KeyValuePair<ControlAddress, ushort>> children)
+    {
+        if (KnownBugs.IsDeadEnd(address, description.Type))
+            return true;
+        if (!description.IsControlLevel || address.IsRoot)
+            return false;
+        IEnumerable<KeyValuePair<ControlAddress, ushort>> below = children[address];
+        return !below.Any() || below.Any(kv => KnownBugs.EchoesParent(kv.Key, description.Type, kv.Value, description));
     }
 }

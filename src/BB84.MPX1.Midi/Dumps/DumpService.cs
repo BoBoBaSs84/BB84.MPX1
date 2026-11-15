@@ -56,12 +56,21 @@ public sealed class DumpService(Mpx1Session session, ParameterDatabase database)
     /// <exception cref="ArgumentException">The data is not valid.</exception>
     public static void Validate(SystemDumpKind kind, ReadOnlySpan<byte> data)
     {
-        int size = SystemDumps.Size(kind);
-        if (data.Length != size)
-            throw new ArgumentException($"{SystemDumps.DisplayName(kind)} must be {size} bytes, got {data.Length}.", nameof(data));
+        if (!SystemDumps.Sizes(kind).Contains(data.Length))
+            throw new ArgumentException($"{SystemDumps.DisplayName(kind)} must be {string.Join(" or ", SystemDumps.Sizes(kind))} bytes, got {data.Length}.", nameof(data));
+        if (kind == SystemDumpKind.AllSetups)
+        {
+            IReadOnlyList<ReadOnlyMemory<byte>> setups = SystemDumps.SplitSetups(data.ToArray());
+            for (int i = 0; i < setups.Count; i++)
+            {
+                if (SystemDumps.Layout(SystemDumpKind.Setup, setups[i].Length)!.InvalidFields(setups[i].ToArray()).FirstOrDefault() is { } invalid)
+                    throw new ArgumentException($"{(i == 0 ? "Active setup" : $"Setup {i}")}: {invalid.Name} holds an illegal value.", nameof(data));
+            }
+            return;
+        }
         if (kind == SystemDumpKind.Leds && !LedState.FromBytes(data).HasValidScanBits())
             throw new ArgumentException("The LED dump must keep the documented scan bits in each column byte.", nameof(data));
-        if (SystemDumps.Layout(kind) is { } layout && layout.InvalidFields(data.ToArray()).FirstOrDefault() is { } bad)
+        if (SystemDumps.Layout(kind, data.Length) is { } layout && layout.InvalidFields(data.ToArray()).FirstOrDefault() is { } bad)
             throw new ArgumentException($"{bad.Name} holds an illegal value.", nameof(data));
     }
 }

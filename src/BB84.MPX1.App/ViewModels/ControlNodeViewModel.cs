@@ -28,6 +28,6 @@ public sealed class ControlNodeViewModel
 
     /// <summary>Gets the address, type and dead-end note, for tooltips.</summary>
     public string Details => Node.IsDeadEnd
-        ? $"{Node.Address} · not browsed (Appendix D bug 2)"
+        ? $"{Node.Address} · no browsable children (Appendix D bug 2)"
         : $"{Node.Address} · {ParameterCount} parameter(s)";
 }

@@ -17,7 +17,10 @@ public static class KnownBugs
     /// <summary>Control-level type that ends a branch without children (bug 2).</summary>
     public const ushort DeadEndType = 0x015B;
 
-    /// <summary>Address of the dead-end control level (bug 2).</summary>
+    /// <summary>
+    /// Address of the dead-end control level as documented (bug 2). A V1.00 unit has it at <c>A:1 B:2 C:3</c>
+    /// ("Cont Remap"); <see cref="EchoesParent"/> finds it wherever it is (spec section 9, E10).
+    /// </summary>
     public static readonly ControlAddress DeadEndAddress = new(1, 2, 0);
 
     /// <summary>Corrects a parameter description reported by the device (LRN-006).</summary>
@@ -35,6 +38,19 @@ public static class KnownBugs
     /// <param name="type">The parameter type at the node.</param>
     public static bool IsDeadEnd(ControlAddress address, ushort type)
         => type == DeadEndType && address == DeadEndAddress;
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the first child (index 0) reports its parent's own control-level type
+    /// (LRN-007). The unit answers every address below a dead-end control level that way, so the parent has no real
+    /// children. The check needs no type number or address, so it holds for every firmware. Only index 0 counts:
+    /// a later sibling may legitimately share its parent's type.
+    /// </summary>
+    /// <param name="child">The child address.</param>
+    /// <param name="parentType">The parent's parameter type, or <see langword="null"/> for the root.</param>
+    /// <param name="childType">The parameter type the child address reported.</param>
+    /// <param name="childDescription">The description of <paramref name="childType"/>, if known.</param>
+    public static bool EchoesParent(ControlAddress child, ushort? parentType, ushort childType, ParameterDescription? childDescription)
+        => !child.IsRoot && child[child.Depth - 1] == 0 && parentType == childType && childDescription is { IsControlLevel: true };
 
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="address"/> is a parameter of an effect algorithm that is

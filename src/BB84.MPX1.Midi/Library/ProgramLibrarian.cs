@@ -46,6 +46,27 @@ public sealed class PresetOverwriteException : InvalidOperationException
     { }
 }
 
+/// <summary>Thrown when a program is cleared (an "available" user register): the unit sends no Program Dump for it.</summary>
+public sealed class EmptyProgramException : InvalidOperationException
+{
+    /// <summary>Initializes a new instance of the <see cref="EmptyProgramException"/> class.</summary>
+    public EmptyProgramException()
+    { }
+
+    /// <summary>Initializes a new instance of the <see cref="EmptyProgramException"/> class.</summary>
+    /// <param name="message">The error message.</param>
+    public EmptyProgramException(string message)
+        : base(message)
+    { }
+
+    /// <summary>Initializes a new instance of the <see cref="EmptyProgramException"/> class.</summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public EmptyProgramException(string message, Exception innerException)
+        : base(message, innerException)
+    { }
+}
+
 /// <summary>What a backup file holds and what restoring it will write (CON-007 confirmation text).</summary>
 /// <param name="Programs">Program dumps for slots 0–249.</param>
 /// <param name="Database">The Database Dump, or <see langword="null"/>.</param>
@@ -91,9 +112,12 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     /// <summary>Reads a stored program or the active program (PRG-001).</summary>
     /// <param name="number">Program number 0–249 or <see cref="Request.ActiveProgram"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="EmptyProgramException">The slot is an empty user register; the unit would not answer.</exception>
     public async Task<ProgramData> ReceiveAsync(ushort number, CancellationToken cancellationToken = default)
     {
         RequireValid(number);
+        if (ProgramSlots.IsUser(number) && await IsClearedAsync(number, cancellationToken).ConfigureAwait(false))
+            throw new EmptyProgramException($"Program {number:D3} is empty (\"available\"); there is nothing to read.");
         ProgramDump dump = await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, number), cancellationToken).ConfigureAwait(false);
         return dump.Program;
     }
@@ -144,13 +168,21 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
         return _session.SendAsync(new DatabaseDump(_session.Device, [.. entries]), cancellationToken);
     }
 
-    /// <summary>Returns the system dump kinds the learned database contains.</summary>
+    /// <summary>
+    /// Returns the system dump kinds the learned database contains, for backups. Single setups are left out when the
+    /// firmware has the all-setups dump (<see cref="SystemDumps.BackupKinds"/>).
+    /// </summary>
     public IReadOnlyList<SystemDumpKind> AvailableDumps()
-        => [.. SystemDumps.BackupKinds.Where(k => SystemDumps.Find(_database, k).Count > 0)];
+        => [.. WithoutSingleSetups(SystemDumps.BackupKinds.Where(k => SystemDumps.Find(_database, k).Count > 0))];
+
+    private bool HasAllSetups => SystemDumps.Find(_database, SystemDumpKind.AllSetups).Count > 0;
+
+    private IEnumerable<SystemDumpKind> WithoutSingleSetups(IEnumerable<SystemDumpKind> kinds)
+        => HasAllSetups ? kinds.Where(k => k != SystemDumpKind.Setup) : kinds;
 
     /// <summary>
-    /// Reads the Database Dump, all 250 programs and the chosen system dumps, in that order (PRG-005). The result
-    /// can be written with <see cref="SyxFile.Write"/>.
+    /// Reads the Database Dump, all 250 programs and the chosen system dumps, in that order (PRG-005). Cleared user
+    /// registers are left out, because the unit sends no dump for them. The result can be written with <see cref="SyxFile.Write"/>.
     /// </summary>
     /// <param name="dumps">System dumps to include.</param>
     /// <param name="progress">Progress receiver.</param>
@@ -158,27 +190,41 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     public async Task<IReadOnlyList<Mpx1Message>> BackupAsync(IEnumerable<SystemDumpKind> dumps, IProgress<LibraryProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dumps);
-        List<ControlTreeNode> dumpNodes = [.. dumps.Distinct().SelectMany(k => SystemDumps.Find(_database, k))];
+        List<ControlTreeNode> dumpNodes = [.. WithoutSingleSetups(dumps.Distinct()).SelectMany(k => SystemDumps.Find(_database, k))];
         int total = 1 + ProgramSlots.Count + dumpNodes.Count;
+        int done = 0;
         List<Mpx1Message> messages = new(total);
 
         messages.Add(await ReadDatabaseAsync(cancellationToken).ConfigureAwait(false));
-        Report(progress, "Database", 1, total);
+        Report(progress, "Database", ++done, total);
 
         for (ushort number = 0; number < ProgramSlots.Count; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            messages.Add(await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, number), cancellationToken).ConfigureAwait(false));
-            Report(progress, "Programs", messages.Count, total);
+            if (!ProgramSlots.IsUser(number) || !await IsClearedAsync(number, cancellationToken).ConfigureAwait(false))
+                messages.Add(await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, number), cancellationToken).ConfigureAwait(false));
+            Report(progress, "Programs", ++done, total);
         }
 
         foreach (ControlTreeNode node in dumpNodes)
         {
             cancellationToken.ThrowIfCancellationRequested();
             messages.Add(await _session.RequestAsync<ParameterData>(Request.ParameterData(_session.Device, node.Address), cancellationToken).ConfigureAwait(false));
-            Report(progress, node.Name, messages.Count, total);
+            Report(progress, node.Name, ++done, total);
         }
         return messages;
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when a program is cleared (an "available" user register). The unit does not
+    /// answer Program Dump requests for cleared programs, so they are recognized by their Program Information.
+    /// </summary>
+    /// <param name="number">Program number 0–249.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<bool> IsClearedAsync(ushort number, CancellationToken cancellationToken = default)
+    {
+        ProgramInformation info = await _session.RequestAsync<ProgramInformation>(Request.ProgramInformation(_session.Device, number), cancellationToken).ConfigureAwait(false);
+        return !info.Algorithms.IsDefaultOrEmpty && info.Algorithms[0] == ProgramData.ClearedAlgorithm;
     }
 
     /// <summary>
@@ -230,6 +276,8 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     {
         if (SystemDumps.KindOf(_database, node) is not { } kind)
             return null;
+        if (kind == SystemDumpKind.Setup && HasAllSetups)
+            return $"Single setup at {data.Address} skipped: this firmware restores setups from the all-setups dump (a V1.00 unit reads every single setup as setup 1).";
         try
         {
             DumpService.Validate(kind, data.Data.Span);

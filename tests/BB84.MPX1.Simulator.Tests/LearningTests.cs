@@ -26,9 +26,9 @@ public sealed class LearningTests
 
     public TestContext TestContext { get; set; } = null!;
 
-    private static async Task<(Mpx1Session Session, Mpx1Simulator Simulator, ConcurrentQueue<Mpx1Message> Sent)> CreateAsync()
+    private static async Task<(Mpx1Session Session, Mpx1Simulator Simulator, ConcurrentQueue<Mpx1Message> Sent)> CreateAsync(SimulatorFixture? fixture = null)
     {
-        Mpx1Simulator simulator = new();
+        Mpx1Simulator simulator = new(fixture);
         await simulator.OpenAsync(Mpx1Simulator.Port.Id, Mpx1Simulator.Port.Id);
         Mpx1Session session = new(simulator, Device, FastOptions);
         ConcurrentQueue<Mpx1Message> sent = new();
@@ -166,6 +166,32 @@ public sealed class LearningTests
             Assert.IsTrue(db.Find(KnownBugs.DeadEndAddress)!.IsDeadEnd);
             Assert.IsFalse(sent.Any(m => m is Request { RequestedClass: MessageClass.ParameterType } r
                 && r.GetControlAddress().Depth == 4 && r.GetControlAddress().Parent() == KnownBugs.DeadEndAddress));
+        }
+    }
+
+    [TestMethod]
+    [Description("LRN-007: a dead end away from the documented address is found because its children echo its type, and is not walked")]
+    public async Task Learn_DeadEndElsewhere_StopsAtFirstEcho()
+    {
+        // A V1.00 unit has the dead end at A:1 B:2 C:3 ("Cont Remap"), not at the documented A:1 B:2 C:0.
+        ControlAddress deadEnd = new(1, 2, 3);
+        SimulatorFixture fixture = DefaultFixture.CreateV110();
+        fixture = fixture with
+        {
+            Nodes = [.. fixture.Nodes.Select(n => ControlAddress.From(n.Address) == deadEnd ? n with { Type = Types.DeadEndLevel } : n)],
+        };
+        var (session, simulator, sent) = await CreateAsync(fixture);
+        await using (session)
+        await using (simulator)
+        {
+            ParameterDatabase db = await new ParameterLearner(session).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
+
+            ControlTreeNode node = db.Find(deadEnd)!;
+            Assert.IsTrue(node.IsDeadEnd);
+            Assert.IsEmpty(node.Children);
+            Assert.IsEmpty(db.Gaps);
+            Assert.AreEqual(1, sent.Count(m => m is Request { RequestedClass: MessageClass.ParameterType } r && r.GetControlAddress().Parent() == deadEnd));
+            Assert.IsNotNull(db.Find(new ControlAddress(1, 2, 4)), "The walk continues after the dead end.");
         }
     }
 

@@ -14,6 +14,7 @@ namespace BB84.MPX1.App.ViewModels;
 public sealed partial class DumpSectionViewModel : ObservableObject
 {
     private readonly SystemViewModel _owner;
+    private readonly ControlTreeNode? _allSetups;
     private byte[] _data = [];
 
     /// <summary>Initializes a new instance of the <see cref="DumpSectionViewModel"/> class.</summary>
@@ -21,16 +22,39 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     /// <param name="kind">The dump kind.</param>
     /// <param name="nodes">The dump's nodes in the learned tree.</param>
     public DumpSectionViewModel(SystemViewModel owner, SystemDumpKind kind, IReadOnlyList<ControlTreeNode> nodes)
+        : this(owner, kind, nodes, allSetups: null)
+    { }
+
+    private DumpSectionViewModel(SystemViewModel owner, SystemDumpKind kind, IReadOnlyList<ControlTreeNode> nodes, ControlTreeNode? allSetups)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
         ArgumentNullException.ThrowIfNull(nodes);
         Kind = kind;
-        Layout = SystemDumps.Layout(kind)!;
-        Instances = [.. nodes.Select((n, i) => new ChoiceItem(i, InstanceName(kind, i, nodes.Count)))];
-        Nodes = nodes;
+        _allSetups = allSetups;
+        if (allSetups is not null)
+        {
+            Layout = SystemDumps.Layout(SystemDumpKind.Setup, allSetups.Description.Size / SystemDumps.SetupCount)!;
+            Instances = [.. Enumerable.Range(0, SystemDumps.SetupCount).Select(i => new ChoiceItem(i, i == 0 ? "Active setup" : $"Setup {i}"))];
+            Nodes = [allSetups];
+        }
+        else
+        {
+            Layout = (nodes.Count > 0 ? SystemDumps.Layout(kind, nodes[0].Description.Size) : null) ?? SystemDumps.Layout(kind)!;
+            Instances = [.. nodes.Select((n, i) => new ChoiceItem(i, InstanceName(kind, i, nodes.Count)))];
+            Nodes = nodes;
+        }
         Fields = [.. Layout.Fields.Select(f => new DumpFieldViewModel(this, f))];
         SelectedInstance = Instances.Count > 0 ? Instances[0] : null;
     }
+
+    /// <summary>
+    /// Creates the Setups section over the all-setups dump: the active setup and stored setups 1–5 (DMP-004). Used when
+    /// the firmware has it, because a V1.00 unit answers every single-setup address with stored setup 1 (spec 9, E13).
+    /// </summary>
+    /// <param name="owner">The System tab.</param>
+    /// <param name="allSetups">The all-setups dump node.</param>
+    public static DumpSectionViewModel ForAllSetups(SystemViewModel owner, ControlTreeNode allSetups)
+        => new(owner, SystemDumpKind.Setup, [], allSetups ?? throw new ArgumentNullException(nameof(allSetups)));
 
     /// <summary>Gets the dump kind.</summary>
     public SystemDumpKind Kind { get; }
@@ -72,7 +96,9 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     public partial bool IsDirty { get; set; }
 
     /// <summary>Gets the selected node.</summary>
-    public ControlTreeNode? Node => SelectedInstance is { } i && i.Value < Nodes.Count ? Nodes[i.Value] : null;
+    public ControlTreeNode? Node => _allSetups ?? (SelectedInstance is { } i && i.Value < Nodes.Count ? Nodes[i.Value] : null);
+
+    private int Setup => SelectedInstance?.Value ?? 0;
 
     /// <summary>Reads the selected instance from the unit.</summary>
     [RelayCommand]
@@ -80,7 +106,8 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     {
         if (Node is not { } node)
             return "Nothing to read.";
-        Show(await dumps.ReadAsync(node, ct));
+        byte[] data = await dumps.ReadAsync(node, ct);
+        Show(_allSetups is null ? data : SystemDumps.SplitSetups(data)[Setup].ToArray());
         return $"Read {InstanceLabel}.";
     });
 
@@ -95,7 +122,16 @@ public sealed partial class DumpSectionViewModel : ObservableObject
         {
             return "Write cancelled.";
         }
-        await dumps.WriteAsync(Kind, node, _data, ct);
+        if (_allSetups is null)
+        {
+            await dumps.WriteAsync(Kind, node, _data, ct);
+        }
+        else
+        {
+            // Read the other five setups fresh, so only the edited one changes.
+            byte[] all = await dumps.ReadAsync(node, ct);
+            await dumps.WriteAsync(SystemDumpKind.AllSetups, node, WithSetup(all, _data), ct);
+        }
         IsDirty = false;
         return $"Wrote {InstanceLabel}.";
     });
@@ -106,7 +142,11 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     {
         if (Node is not { } node || !IsLoaded)
             return;
-        byte[] file = SyxFile.Write([new ParameterData(_owner.Device, _data, node.Address)]);
+        // The all-setups dump is exported whole, from the unit, with the edited setup in place.
+        byte[] data = _allSetups is null ? _data : WithSetup(await _owner.ReadAllSetupsAsync(node) ?? [], _data);
+        if (data.Length == 0)
+            return;
+        byte[] file = SyxFile.Write([new ParameterData(_owner.Device, data, node.Address)]);
         string? saved = await _owner.Dialogs.SaveSyxAsync($"Export {Title}", $"{InstanceLabel}.syx", file);
         _owner.Status = saved is null ? "Export cancelled." : $"Saved {saved}.";
     }
@@ -119,14 +159,18 @@ public sealed partial class DumpSectionViewModel : ObservableObject
         if (file is null)
             return;
         SyxContent content = SyxFile.Read(file.Contents);
-        ParameterData? match = content.Dumps.FirstOrDefault(d => Node is { } n && d.Address == n.Address && d.Data.Length == Layout.Size)
-            ?? content.Dumps.FirstOrDefault(d => d.Data.Length == Layout.Size && Nodes.Any(n => n.Address == d.Address));
-        if (match is null)
+        byte[]? imported = _allSetups is { } all
+            ? content.Dumps.FirstOrDefault(d => d.Address == all.Address && d.Data.Length == Layout.Size * SystemDumps.SetupCount) is { } combined
+                ? SystemDumps.SplitSetups(combined.Data)[Setup].ToArray()
+                : null
+            : (content.Dumps.FirstOrDefault(d => Node is { } n && d.Address == n.Address && d.Data.Length == Layout.Size)
+                ?? content.Dumps.FirstOrDefault(d => d.Data.Length == Layout.Size && Nodes.Any(n => n.Address == d.Address)))?.Data.ToArray();
+        if (imported is null)
         {
             _owner.Status = $"{file.Name} contains no {Title} dump.";
             return;
         }
-        Show(match.Data.ToArray());
+        Show(imported);
         IsDirty = true;
         _owner.Status = $"Loaded {Title} from {file.Name}; choose Write to send it.";
     }
@@ -171,10 +215,17 @@ public sealed partial class DumpSectionViewModel : ObservableObject
             _ = ReadAsync();
     }
 
+    private byte[] WithSetup(byte[] all, byte[] setup)
+    {
+        byte[] copy = [.. all];
+        setup.CopyTo(copy, Setup * setup.Length);
+        return copy;
+    }
+
     private string InstanceLabel => SelectedInstance is { } i && HasInstances ? $"{Title} – {i.Label}" : Title;
 
     private static string InstanceName(SystemDumpKind kind, int index, int count)
-        => kind == SystemDumpKind.Setup && count == 6
+        => kind == SystemDumpKind.Setup && count is 5 or 6
             ? index == 5 ? "Active setup" : $"Setup {index + 1}"
             : $"#{index + 1}";
 }

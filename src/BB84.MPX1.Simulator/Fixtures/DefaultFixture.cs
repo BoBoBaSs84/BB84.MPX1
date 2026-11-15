@@ -87,6 +87,8 @@ public static class DefaultFixture
         public const ushort LedsDump = 0x0130;
         /// <summary>Custom Character Bitmap dump (V1.10).</summary>
         public const ushort CustomCharactersDump = 0x0131;
+        /// <summary>All six setups in one dump, active first (the documented Setup dump; V1.00 numbers it 0x0128).</summary>
+        public const ushort AllSetupsDump = 0x0128;
         /// <summary>Level that holds the six setup dumps.</summary>
         public const ushort SetupDumps = 0x015F;
         /// <summary>Level that holds the active-program dumps.</summary>
@@ -224,10 +226,11 @@ public static class DefaultFixture
             new(Types.CurrentChoicesDump, "Cur Choices", (ushort)DumpLayouts.CurrentChoices.Size, 0, null, [new(0, -1, 0x44)]),
             new(Types.PatchesDump, "Patches    ", (ushort)DumpLayouts.Patches.Size, 0, null, [new(0, -1, 0x44)]),
             new(Types.SoftRowDump, "Soft Row   ", (ushort)DumpLayouts.SoftRow.Size, 0, null, [new(0, -1, 0x44)]),
-            new(Types.Controllers, "Controllers", 1, bottom, null, [new(0, 2, 0x00)]),
+            new(Types.Controllers, "Controllers", 1, bottom, null, [new(0, 3, 0x00)]),
             new(Types.GlobalPatchesDump, "Global Ptch", 20, 0, null, [new(0, -1, 0x44)]),
             new(Types.BypassDump, "Bypass Ctrl", 7, 0, null, [new(0, -1, 0x44)]),
             new(Types.RemapDump, "Remap Ctrl ", 163, 0, null, [new(0, -1, 0x44)]),
+            new(Types.AllSetupsDump, "SetupDump  ", (ushort)(6 * DumpLayouts.Setup.Size), 0, null, [new(0, -1, 0x44)]),
         ];
 
         (List<FixtureDescription> controllerDescriptions, List<FixtureController> controllers) = CreateControllers();
@@ -292,6 +295,7 @@ public static class DefaultFixture
                     Node(Types.GlobalPatchesDump, 1, 12, 0);
                     Node(Types.BypassDump, 1, 12, 1);
                     Node(Types.RemapDump, 1, 12, 2);
+                    Node(Types.AllSetupsDump, 1, 12, 3);
                     break;
                 case 13:
                     Node(Types.SetupDumps, 1, 13);

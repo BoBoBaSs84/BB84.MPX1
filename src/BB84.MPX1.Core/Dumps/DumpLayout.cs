@@ -48,6 +48,12 @@ public sealed record DumpField(string Name, int Offset, int Size, DumpFieldKind 
     /// <summary>Gets the allowed controller sources (controller fields, DMP-011).</summary>
     public ImmutableArray<byte> Sources { get; init; } = [];
 
+    /// <summary>
+    /// Gets the value the unit itself stores for "None" in this controller field, besides <c>0xFF</c>, or
+    /// <see langword="null"/> when <c>0xFF</c> is the only one.
+    /// </summary>
+    public byte? NoneValue { get; init; }
+
     /// <summary>Gets a value indicating whether the field is internal and shown read-only (pointers, calibration, unused).</summary>
     public bool IsReadOnly { get; init; }
 
@@ -79,7 +85,7 @@ public sealed record DumpField(string Name, int Offset, int Size, DumpFieldKind 
     {
         DumpFieldKind.Choice => Choices.Any(c => c.Value == value),
         DumpFieldKind.Toggle => value is 0 or 1,
-        DumpFieldKind.Controller => value is >= 0 and <= 255 && ControllerSources.IsValid((byte)value, Sources),
+        DumpFieldKind.Controller => value is >= 0 and <= 255 && (value == NoneValue || ControllerSources.IsValid((byte)value, Sources)),
         DumpFieldKind.Text => false,
         _ => value >= Minimum && value <= Maximum,
     };
@@ -128,7 +134,7 @@ public sealed record DumpField(string Name, int Offset, int Size, DumpFieldKind 
         {
             DumpFieldKind.Choice => Choices.FirstOrDefault(c => c.Value == value)?.Label ?? value.ToString(CultureInfo.InvariantCulture),
             DumpFieldKind.Toggle => value == 0 ? "Off" : "On",
-            DumpFieldKind.Controller => ControllerSources.Name((byte)value),
+            DumpFieldKind.Controller => value == NoneValue ? ControllerSources.Name(ControllerSources.Unassigned) : ControllerSources.Name((byte)value),
             _ => value.ToString(CultureInfo.InvariantCulture),
         };
     }

@@ -137,6 +137,39 @@ public sealed class Mpx1SessionTests
     }
 
     [TestMethod]
+    [Description("SES-005: BUSY that arrives after the frame's MIDI wire time still holds back the next send (V1.00 sends it ~330 ms after an 844-byte dump)")]
+    public async Task SendAsync_LateBusy_StillWaitsForReady()
+    {
+        TimeSpan busyAfter = TimeSpan.FromMilliseconds(250);
+        var (session, device, _) = await CreateAsync(m => m is ProgramDump
+            ? [(busyAfter, new Handshake(Device, HandshakeCommand.Busy)), (TimeSpan.FromMilliseconds(100), new Handshake(Device, HandshakeCommand.Ready))]
+            : Nothing);
+        await using (session)
+        await using (device)
+        {
+            ProgramDump dump = new(Device, 200, TestProgram());
+            Assert.IsGreaterThan(busyAfter, session.Options.GetBusyWait(dump.ToBytes().Length));
+            long start = TimeProvider.System.GetTimestamp();
+
+            await session.SendAsync(dump, TestContext.CancellationToken);
+
+            Assert.IsGreaterThanOrEqualTo(busyAfter + TimeSpan.FromMilliseconds(80), TimeProvider.System.GetElapsedTime(start),
+                "SendAsync returned before the late BUSY/READY pair.");
+            Assert.IsFalse(session.IsDeviceBusy);
+        }
+    }
+
+    [TestMethod]
+    [Description("SES-005: the BUSY wait covers the frame's time on the MIDI cable plus the grace period")]
+    public void GetBusyWait_AddsWireTime()
+    {
+        Mpx1SessionOptions options = new() { BusyGracePeriod = TimeSpan.FromMilliseconds(100) };
+
+        Assert.AreEqual(TimeSpan.FromMilliseconds(100), options.GetBusyWait(0));
+        Assert.AreEqual(370.08, options.GetBusyWait(844).TotalMilliseconds, 0.01);
+    }
+
+    [TestMethod]
     [Description("SES-005: missing READY raises a timeout and unblocks later sends")]
     public async Task SendAsync_MissingReady_Throws()
     {

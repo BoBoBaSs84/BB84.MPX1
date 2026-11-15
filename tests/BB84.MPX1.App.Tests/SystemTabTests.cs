@@ -4,6 +4,7 @@ using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Dumps;
+using BB84.MPX1.Core.Files;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi.Learning;
 using BB84.MPX1.Simulator;
@@ -49,7 +50,7 @@ public sealed class SystemTabTests
     private static DumpFieldViewModel Field(DumpSectionViewModel section, string name) => section.Fields.Single(f => f.Name == name);
 
     [TestMethod]
-    [Description("UI-008, DMP-004..DMP-008: the System tab offers the firmware's dumps; setups list five stored and the active one")]
+    [Description("UI-008, DMP-004..DMP-008: the System tab offers the firmware's dumps; setups list the active one and five stored, from the all-setups dump")]
     public async Task OpenTab_ShowsSections()
     {
         await using MainWindowViewModel vm = await OpenSystemAsync();
@@ -59,8 +60,10 @@ public sealed class SystemTabTests
             system.Sections.Select(s => s.Title).ToArray());
         DumpSectionViewModel setups = system.Sections[0];
         Assert.HasCount(6, setups.Instances);
-        Assert.AreEqual("Active setup", setups.Instances[^1].Label);
-        Assert.AreEqual("Setup 1", Field(setups, "Setup name").Text);
+        Assert.AreEqual("Active setup", setups.Instances[0].Label);
+        Assert.AreEqual("Setup 5", setups.Instances[^1].Label);
+        Assert.AreEqual(new ControlAddress(1, 12, 3), setups.Node!.Address, "Setups are read through the all-setups dump.");
+        Assert.AreEqual("Active", Field(setups, "Setup name").Text);
         Assert.AreEqual("Fast", Field(setups, "MIDI transmit speed").Selected!.Label);
         Assert.IsTrue(Field(setups, "Pedal max (calibration)").IsReadOnly);
         Assert.IsFalse(system.Sections[^1].IsWritable, "Current Choices is read-only.");
@@ -73,9 +76,11 @@ public sealed class SystemTabTests
     {
         await using MainWindowViewModel vm = await OpenSystemAsync();
         DumpSectionViewModel setups = vm.System.Sections[0];
-        setups.SelectedInstance = setups.Instances[2];
+        setups.SelectedInstance = setups.Instances[3];
         await WaitAsync(() => setups.IsLoaded);
-        ControlAddress address = setups.Node!.Address;
+        Assert.AreEqual("Setup 3", Field(setups, "Setup name").Text);
+        ControlAddress address = new(1, 13, 2);
+        byte[] others = Simulator.GetValue(new ControlAddress(1, 13, 5))!;
 
         Field(setups, "LCD contrast").Number = 13;
         Field(setups, "Setup name").Text = "Studio";
@@ -91,7 +96,35 @@ public sealed class SystemTabTests
         byte[] stored = Simulator.GetValue(address)!;
         Assert.AreEqual(13, DumpLayouts.Setup.Fields.Single(f => f.Name == "LCD contrast").Read(stored));
         Assert.AreEqual("Studio", DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name").ReadText(stored).TrimEnd());
+        CollectionAssert.AreEqual(others, Simulator.GetValue(new ControlAddress(1, 13, 5)), "The other setups are written back unchanged.");
         Assert.IsFalse(setups.IsDirty);
+    }
+
+    [TestMethod]
+    [Description("UI-008, DMP-004, PRG-006: setups export as the whole all-setups dump and import the selected setup from it")]
+    public async Task Setups_ExportAndImportAllSetups()
+    {
+        await using MainWindowViewModel vm = await OpenSystemAsync();
+        DumpSectionViewModel setups = vm.System.Sections[0];
+        await WaitAsync(() => setups.IsLoaded);
+        Field(setups, "Setup name").Text = "Edited";
+
+        await setups.ExportAsync();
+
+        ParameterData exported = SyxFile.Read(Dialogs.Saved.Single().Contents).Dumps.Single();
+        Assert.AreEqual(new ControlAddress(1, 12, 3), exported.Address);
+        IReadOnlyList<ReadOnlyMemory<byte>> chunks = SystemDumps.SplitSetups(exported.Data);
+        DumpField name = DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name");
+        Assert.AreEqual("Edited", name.ReadText(chunks[0].Span).TrimEnd(), "The edit is in the export.");
+        Assert.AreEqual("Setup 1", name.ReadText(chunks[1].Span).TrimEnd());
+
+        setups.SelectedInstance = setups.Instances[1];
+        await WaitAsync(() => setups.IsLoaded);
+        Dialogs.FileToOpen = new PickedFile("setups.syx", Dialogs.Saved.Single().Contents);
+        await setups.ImportAsync();
+
+        Assert.AreEqual("Setup 1", Field(setups, "Setup name").Text, "Import takes the selected setup from the dump.");
+        Assert.IsTrue(setups.IsDirty);
     }
 
     [TestMethod]

@@ -87,7 +87,7 @@ public sealed class ParameterLearner(Mpx1Session session, IParameterDatabaseStor
         }
 
         int maxDepth = Math.Max(configuration.MaxControlLevels, (ushort)1);
-        await WalkAsync(ControlAddress.Root).ConfigureAwait(false);
+        await WalkAsync(ControlAddress.Root, parentType: null).ConfigureAwait(false);
 
         progress?.Report(new LearningProgress(LearningPhase.Algorithms, total, total, builder.NodeCount, gaps));
         await LearnAlgorithmsAsync(builder, cancellationToken).ConfigureAwait(false);
@@ -95,7 +95,8 @@ public sealed class ParameterLearner(Mpx1Session session, IParameterDatabaseStor
         progress?.Report(new LearningProgress(LearningPhase.Done, total, total, builder.NodeCount, gaps));
         return builder.Build();
 
-        async Task WalkAsync(ControlAddress address)
+        // Returns false when the node echoes its parent's control-level type: the parent has no real children (LRN-007).
+        async Task<bool> WalkAsync(ControlAddress address, ushort? parentType)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ParameterType type;
@@ -108,8 +109,11 @@ public sealed class ParameterLearner(Mpx1Session session, IParameterDatabaseStor
                 // A branch's range may contain addresses the unit does not answer; record and continue (spec 9).
                 builder.AddGap(address);
                 gaps++;
-                return;
+                return true;
             }
+
+            if (KnownBugs.EchoesParent(address, parentType, type.Type, builder.Describe(type.Type)))
+                return false;
 
             builder.AddNode(address, type.Type);
             if (builder.NodeCount % 16 == 0)
@@ -117,11 +121,15 @@ public sealed class ParameterLearner(Mpx1Session session, IParameterDatabaseStor
 
             ParameterDescription? description = builder.Describe(type.Type);
             if (description is null || address.Depth >= maxDepth)
-                return;
+                return true;
 
             int children = Math.Min(ParameterDatabaseBuilder.ChildCount(address, description), MaxChildrenPerNode);
             for (int i = 0; i < children; i++)
-                await WalkAsync(address.Child((ushort)i)).ConfigureAwait(false);
+            {
+                if (!await WalkAsync(address.Child((ushort)i), type.Type).ConfigureAwait(false))
+                    break;
+            }
+            return true;
         }
     }
 

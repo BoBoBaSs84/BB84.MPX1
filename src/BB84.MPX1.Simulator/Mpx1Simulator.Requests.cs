@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Simulator.Fixtures;
@@ -65,8 +66,26 @@ public sealed partial class Mpx1Simulator
 
     private void RespondParameterType(Request request)
     {
-        if (_tree.TryGetValue(request.GetControlAddress(), out ushort type))
+        ControlAddress address = request.GetControlAddress();
+        if (_tree.TryGetValue(address, out ushort type) || TryGetDeadEndAncestor(address, out type))
             Respond(new ParameterType(Options.Device, type));
+    }
+
+    // Like a V1.00 unit, every address below a control level without children answers with that level's type
+    // (Appendix D bug 2, spec section 9 E10).
+    private bool TryGetDeadEndAncestor(ControlAddress address, out ushort type)
+    {
+        for (ControlAddress ancestor = address; !ancestor.IsRoot;)
+        {
+            ancestor = ancestor.Parent();
+            if (!_tree.TryGetValue(ancestor, out type))
+                continue;
+            bool isLevel = _descriptions.TryGetValue(type, out ParameterDescription? description) && description.IsControlLevel;
+            ControlAddress level = ancestor;
+            return isLevel && !_tree.Keys.Any(a => !a.IsRoot && a.Parent() == level);
+        }
+        type = 0;
+        return false;
     }
 
     private void RespondParameterDescription(Request request)
@@ -122,8 +141,9 @@ public sealed partial class Mpx1Simulator
 
     private void RespondProgramDump(Request request)
     {
+        // Like the unit, a cleared stored program ("available" user register) gets no answer.
         ushort number = request.GetWord(0);
-        if (ProgramOrActive(number) is { } program)
+        if (ProgramOrActive(number) is { } program && (number == Request.ActiveProgram || !program.IsCleared))
             Respond(new ProgramDump(Options.Device, number, program));
     }
 
@@ -138,6 +158,8 @@ public sealed partial class Mpx1Simulator
             return _active.GetPatchesDump();
         if (type == DefaultFixture.Types.SoftRowDump)
             return _active.GetSoftRowDump();
+        if (type == DefaultFixture.Types.AllSetupsDump)
+            return [.. AllSetupsOrder.SelectMany(a => _values.TryGetValue(a, out byte[]? setup) ? setup : new byte[DumpLayouts.Setup.Size])];
         if (_values.TryGetValue(address, out byte[]? value))
             return value;
         ParameterDescription description = Describe(type);

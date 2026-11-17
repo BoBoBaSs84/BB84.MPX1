@@ -60,7 +60,7 @@ public sealed class LibrarianTabTests
 
         Assert.HasCount(250, librarian.Slots);
         ProgramSlotViewModel first = librarian.Slots[1];
-        Assert.AreEqual("001", first.NumberText);
+        Assert.AreEqual("002", first.NumberText, "The list shows front-panel numbers.");
         Assert.AreEqual("Preset 002", first.Name);
         Assert.AreEqual("Detune (M), 1-Band (M)", first.Algorithms, "Odd fixture programs load Detune (M) and 1-Band (M).");
         Assert.AreEqual("—", librarian.Slots[0].Algorithms);
@@ -105,7 +105,7 @@ public sealed class LibrarianTabTests
         Select(librarian, 7);
         await librarian.ExportAsync();
         (string name, byte[] contents) = Dialogs.Saved.Single();
-        Assert.AreEqual("007 Preset 008.syx", name);
+        Assert.AreEqual("008 Preset 008.syx", name);
         ProgramDump exported = SyxFile.Read(contents).Programs.Single();
         Assert.AreEqual((ushort)7, exported.ProgramNumber);
 

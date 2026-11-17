@@ -153,7 +153,7 @@ BB84.MPX1 is a clean-room reimplementation of a MIDI System Exclusive (SysEx) ed
 - **PRG-001**: Read and write a single program (0–249 and active `0xFFFF`) with Program Dump `1B`.
 - **PRG-002**: Model the program structure in section 4.5, including effect data blocks, sort flags, audio routing, algorithm numbers, name, effect status, soft values, tempo fields, meter, master level/mix, patches, knob, LFOs, arpeggiator, ADSRs, random, A/B, sample-and-hold and envelope generators.
 - **PRG-003**: Locate a parameter inside a 32-byte effect data block by walking the algorithm's parameter-type list and summing each type's size, including option bytes.
-- **PRG-004**: Writes to presets 0–199 shall require explicit user confirmation. Saving to user registers 200–249 shall not.
+- **PRG-004**: Writes to presets 0–199 shall require explicit user confirmation. Saving to user registers 200–249 shall not. The UI shall show program numbers as the front panel and user guide do, 1–250 (protocol number + 1); 0–249 is used only on the wire and in the Core/Midi APIs.
 - **PRG-005**: Batch backup shall read all 250 programs plus the Database Dump (`16`) and selected system dumps into one `.syx` file. Restore shall write them back with handshake flow control.
 - **PRG-006**: `.syx` import shall accept files containing any number of MPX 1 frames and ignore frames from other devices with a warning.
 - **PRG-007**: Program Information (`1A`) shall be used to list names and algorithms without transferring full dumps.

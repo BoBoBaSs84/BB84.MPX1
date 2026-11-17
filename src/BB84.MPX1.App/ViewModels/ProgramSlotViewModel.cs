@@ -1,5 +1,3 @@
-using System.Globalization;
-
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using BB84.MPX1.Core.Programs;
@@ -26,8 +24,8 @@ public sealed partial class ProgramSlotViewModel : ObservableObject
     /// <summary>Gets the program number.</summary>
     public ushort Number { get; }
 
-    /// <summary>Gets the number as shown in the list.</summary>
-    public string NumberText => Number.ToString("D3", CultureInfo.InvariantCulture);
+    /// <summary>Gets the front-panel number 001–250, as shown in the list.</summary>
+    public string NumberText => ProgramSlots.DisplayNumber(Number);
 
     /// <summary>Gets a value indicating whether the slot is a factory preset.</summary>
     public bool IsPreset => ProgramSlots.IsPreset(Number);

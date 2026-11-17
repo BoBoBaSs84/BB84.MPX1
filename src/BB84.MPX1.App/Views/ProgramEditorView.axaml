@@ -54,8 +54,8 @@
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedLeft">
               <StackPanel x:DataType="e:ProgramEditorViewModel" Spacing="8" Width="240">
-                <TextBlock Text="Store in slot (0–199 presets, 200–249 user)" TextWrapping="Wrap" />
-                <NumericUpDown Minimum="0" Maximum="249" Increment="1" FormatString="000" Value="{Binding StoreTarget}" />
+                <TextBlock Text="Store in program (1–200 presets, 201–250 user)" TextWrapping="Wrap" />
+                <NumericUpDown Minimum="1" Maximum="250" Increment="1" FormatString="000" Value="{Binding StoreTargetDisplay}" />
                 <Button Content="Store" Classes="accent" HorizontalAlignment="Right" Command="{Binding StoreCommand}" />
               </StackPanel>
             </Flyout>

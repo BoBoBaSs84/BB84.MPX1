@@ -80,7 +80,8 @@ public sealed class LibrarianTests
         ProgramData program = await rig.Librarian.ReceiveAsync(7, TestContext.CancellationToken) with { Name = "Stored      " };
         rig.Sent.Clear();
 
-        await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => rig.Librarian.StoreAsync(3, program, presetConfirmed: false, TestContext.CancellationToken));
+        PresetOverwriteException error = await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => rig.Librarian.StoreAsync(3, program, presetConfirmed: false, TestContext.CancellationToken));
+        Assert.Contains("Program 004", error.Message, "Messages use front-panel numbers.");
         Assert.IsEmpty(rig.Sent.OfType<ProgramDump>());
 
         await rig.Librarian.StoreAsync(210, program, presetConfirmed: false, TestContext.CancellationToken);
@@ -166,7 +167,7 @@ public sealed class LibrarianTests
 
         EmptyProgramException error = await Assert.ThrowsExactlyAsync<EmptyProgramException>(() => rig.Librarian.ReceiveAsync(230, TestContext.CancellationToken));
 
-        Assert.Contains("230", error.Message);
+        Assert.Contains("Program 231", error.Message, "Messages use front-panel numbers.");
         Assert.IsLessThan(FastOptions.RequestTimeout, TimeProvider.System.GetElapsedTime(start));
         Assert.DoesNotContain(r => r.RequestedClass == MessageClass.ProgramDump, rig.Sent.OfType<Request>());
         Assert.AreEqual(rig.Simulator.GetProgram(231).Name, (await rig.Librarian.ReceiveAsync(231, TestContext.CancellationToken)).Name, "Filled user registers still read.");

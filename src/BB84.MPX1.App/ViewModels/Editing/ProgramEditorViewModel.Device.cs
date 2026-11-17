@@ -51,11 +51,11 @@ public sealed partial class ProgramEditorViewModel
 
     /// <summary>Reads a slot from the device and opens it.</summary>
     /// <param name="number">Program number 0–249.</param>
-    public Task OpenSlotAsync(ushort number) => RunAsync($"Reading program {number:D3}…", async (librarian, ct) =>
+    public Task OpenSlotAsync(ushort number) => RunAsync($"Reading program {ProgramSlots.DisplayNumber(number)}…", async (librarian, ct) =>
     {
         ProgramData program = await librarian.ReceiveAsync(number, ct);
-        Load(program, $"Slot {number:D3} \"{program.Name.TrimEnd()}\"", number);
-        return $"Opened {number:D3}.";
+        Load(program, $"Slot {ProgramSlots.DisplayNumber(number)} \"{program.Name.TrimEnd()}\"", number);
+        return $"Opened {ProgramSlots.DisplayNumber(number)}.";
     });
 
     /// <summary>Opens the active program of the device.</summary>
@@ -72,18 +72,19 @@ public sealed partial class ProgramEditorViewModel
     public Task StoreAsync() => RunAsync("Storing…", async (librarian, ct) =>
     {
         ushort target = (ushort)Math.Clamp(StoreTarget, 0, ProgramSlots.Count - 1);
+        string display = ProgramSlots.DisplayNumber(target);
         if (ProgramSlots.IsPreset(target)
-            && !await _dialogs.ConfirmAsync("Overwrite factory preset", $"Store \"{Program.Name.TrimEnd()}\" in preset {target:D3}? Factory presets can only be restored from a backup.", "Overwrite"))
+            && !await _dialogs.ConfirmAsync("Overwrite factory preset", $"Store \"{Program.Name.TrimEnd()}\" in preset {display}? Factory presets can only be restored from a backup.", "Overwrite"))
         {
             return "Store cancelled.";
         }
         await librarian.StoreAsync(target, Program, presetConfirmed: true, ct);
         _original = Program;
         _sourceNumber = target;
-        Source = $"Slot {target:D3} \"{Program.Name.TrimEnd()}\"";
+        Source = $"Slot {display} \"{Program.Name.TrimEnd()}\"";
         IsDirty = false;
         Stored?.Invoke(this, (target, Program));
-        return $"Stored in {target:D3}.";
+        return $"Stored in {display}.";
     });
 
     /// <summary>Sends the program to the active program without storing it.</summary>

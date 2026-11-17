@@ -112,6 +112,18 @@ public sealed class ProgramLayoutTests
     }
 
     [TestMethod]
+    [Description("PRG-004: users see front-panel numbers 1-250 (presets 1-200, user programs 201-250)")]
+    public void ProgramSlots_DisplayNumbers()
+    {
+        Assert.AreEqual("001", ProgramSlots.DisplayNumber(0));
+        Assert.AreEqual("200", ProgramSlots.DisplayNumber(ProgramSlots.FirstUser - 1));
+        Assert.AreEqual("201", ProgramSlots.DisplayNumber(ProgramSlots.FirstUser));
+        Assert.AreEqual("250", ProgramSlots.DisplayNumber(ProgramSlots.Count - 1));
+        Assert.AreEqual(215, ProgramSlots.ToDisplay(214));
+        Assert.AreEqual(214, ProgramSlots.FromDisplay(215));
+    }
+
+    [TestMethod]
     [Description("PRG-006: .syx files round trip; other devices' frames and invalid frames are skipped with warnings")]
     public void SyxFile_ReadsMpx1FramesAndWarns()
     {

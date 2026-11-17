@@ -117,7 +117,7 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     {
         RequireValid(number);
         if (ProgramSlots.IsUser(number) && await IsClearedAsync(number, cancellationToken).ConfigureAwait(false))
-            throw new EmptyProgramException($"Program {number:D3} is empty (\"available\"); there is nothing to read.");
+            throw new EmptyProgramException($"Program {ProgramSlots.DisplayNumber(number)} is empty (\"available\"); there is nothing to read.");
         ProgramDump dump = await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, number), cancellationToken).ConfigureAwait(false);
         return dump.Program;
     }
@@ -138,7 +138,7 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     {
         if (number == Request.ActiveProgram || !ProgramSlots.IsValid(number))
             throw new ArgumentOutOfRangeException(nameof(number), number, "Programs are stored in slots 0-249.");
-        RequirePresetConfirmation(ProgramSlots.IsPreset(number), presetConfirmed, $"Program {number} is a factory preset.");
+        RequirePresetConfirmation(ProgramSlots.IsPreset(number), presetConfirmed, $"Program {ProgramSlots.DisplayNumber(number)} is a factory preset.");
         return SendDumpAsync(number, program, cancellationToken);
     }
 

@@ -41,7 +41,7 @@ public sealed class ProgramEditorTests
     {
         MainWindowViewModel vm = await WorkbenchTests.ConnectAndLearnAsync(CreateViewModel());
         await vm.ProgramEditor.OpenSlotAsync(number);
-        Assert.AreEqual($"Slot {number:D3} \"{Simulator.GetProgram(number).Name.TrimEnd()}\"", vm.ProgramEditor.Source, vm.ProgramEditor.Status);
+        Assert.AreEqual($"Slot {ProgramSlots.DisplayNumber(number)} \"{Simulator.GetProgram(number).Name.TrimEnd()}\"", vm.ProgramEditor.Source, vm.ProgramEditor.Status);
         return vm;
     }
 
@@ -196,17 +196,21 @@ public sealed class ProgramEditorTests
         editor.Name = "Edited";
 
         Assert.AreEqual(1, editor.StoreTarget, "The store target starts at the source slot.");
+        Assert.AreEqual(2, editor.StoreTargetDisplay, "The store box shows front-panel numbers.");
         Dialogs.Answers.Enqueue(false);
         await editor.StoreAsync();
         Assert.AreEqual("Store cancelled.", editor.Status);
+        Assert.Contains("in preset 002?", Dialogs.Confirmations[0]);
         Assert.AreEqual("Preset 002  ", Simulator.GetProgram(1).Name);
 
         vm.SelectedTab = MainWindowViewModel.LibrarianTab;
         for (int i = 0; i < 300 && !vm.Librarian.IsLoaded; i++)
             await Task.Delay(10, TestContext.CancellationToken);
 
-        editor.StoreTarget = 222;
+        editor.StoreTargetDisplay = 223;
+        Assert.AreEqual(222, editor.StoreTarget);
         await editor.StoreAsync();
+        Assert.AreEqual("Stored in 223.", editor.Status);
         Assert.AreEqual("Edited      ", Simulator.GetProgram(222).Name);
         Assert.AreEqual("Edited", vm.Librarian.Slots[222].Name);
         Assert.IsFalse(editor.IsDirty);

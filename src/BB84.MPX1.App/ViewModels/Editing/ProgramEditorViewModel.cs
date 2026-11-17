@@ -95,9 +95,17 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
     /// <summary>Gets a value indicating whether <see cref="RoutingWarning"/> is set.</summary>
     public bool HasRoutingWarning => RoutingWarning is not null;
 
-    /// <summary>Gets or sets the slot used by <see cref="StoreCommand"/>.</summary>
+    /// <summary>Gets or sets the slot used by <see cref="StoreCommand"/>, as a program number 0–249.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StoreTargetDisplay))]
     public partial int StoreTarget { get; set; } = ProgramSlots.FirstUser;
+
+    /// <summary>Gets or sets <see cref="StoreTarget"/> as the front-panel number 1–250 shown in the store box.</summary>
+    public int StoreTargetDisplay
+    {
+        get => ProgramSlots.ToDisplay(StoreTarget);
+        set => StoreTarget = ProgramSlots.FromDisplay(value);
+    }
 
     /// <summary>Sets the learned database used for block layouts; it stays after disconnecting (UI-010).</summary>
     /// <param name="database">The database, or <see langword="null"/>.</param>

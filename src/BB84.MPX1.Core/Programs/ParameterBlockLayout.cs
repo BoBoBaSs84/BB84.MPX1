@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Core.Values;
@@ -168,7 +169,7 @@ public static class ModulatorBlocks
 /// <param name="Size">Size in bytes.</param>
 public sealed record ModulatorBlock(EffectType Type, string Name, int Offset, int Size);
 
-/// <summary>Program numbering: presets 0–199, user registers 200–249, active <c>0xFFFF</c> (PRG-001, PRG-004).</summary>
+/// <summary>Program numbering: presets 0–199, user registers 200–249, active <c>0xFFFF</c> (PRG-001, PRG-004). The front panel shows 1–250.</summary>
 public static class ProgramSlots
 {
     /// <summary>Number of stored programs.</summary>
@@ -188,4 +189,16 @@ public static class ProgramSlots
     /// <summary>Returns <see langword="true"/> for a stored slot or the active program.</summary>
     /// <param name="number">Program number.</param>
     public static bool IsValid(int number) => number is >= 0 and < Count || number == Request.ActiveProgram;
+
+    /// <summary>Converts a program number 0–249 to the front-panel number 1–250 shown to users.</summary>
+    /// <param name="number">Program number.</param>
+    public static int ToDisplay(int number) => number + 1;
+
+    /// <summary>Converts a front-panel number 1–250 to the program number 0–249 used on the wire.</summary>
+    /// <param name="display">Front-panel number.</param>
+    public static int FromDisplay(int display) => display - 1;
+
+    /// <summary>Formats a program number 0–249 as its front-panel number, for example 214 as <c>215</c>.</summary>
+    /// <param name="number">Program number.</param>
+    public static string DisplayNumber(int number) => ToDisplay(number).ToString("D3", CultureInfo.InvariantCulture);
 }

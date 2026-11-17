@@ -34,7 +34,7 @@ BB84.MPX1 is a clean-room reimplementation of a MIDI System Exclusive (SysEx) ed
 **Assumptions**:
 
 - No physical MPX 1 is guaranteed to be available during development. All behavior must be testable against the simulator.
-- The legacy document text extraction (`*.md`) may contain table-flattening errors. The PDF next to it is authoritative.
+- The legacy document text extraction (`*.md`) may contain table-flattening errors. The original Lexicon PDF (kept outside the repository) is authoritative.
 
 ## 2. Definitions
 
@@ -415,7 +415,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
 
 ### Data Dependencies
 
-- **DAT-001**: `legacy/MPX1_V1_1_MIDI_Impl_Rev1_original.md` / `.pdf` — authoritative protocol source.
+- **DAT-001**: `legacy/MPX1_V1_1_MIDI_Impl_Rev1_original.md` (extraction of the Lexicon PDF) — authoritative protocol source. `legacy/MPX1_MIDI_Implmt_Rev0_original.md` (V1.00 only) is the cross-check for V1.00 type numbers and layouts.
 - **DAT-002**: Appendix A (controller indices) and Appendix B (display units) — encoded as static data in Core.
 - **DAT-003**: Recorded SysEx sessions from real hardware, when available — regression fixtures.
 
@@ -455,13 +455,17 @@ Known inconsistencies in the source document that the implementation must handle
 | E4  | Device ID range                    | "0–127 transmit, 0–126 receive" vs. "all devices (127)"                                                                                                                                                                                           | Allow 0–127. Treat 127 as broadcast; responses carry the real device ID.                                                                       |
 | E5  | Database Dump byte offsets         | Offsets in the table are inconsistent                                                                                                                                                                                                             | Derive layout from field sizes: 250 × 3 bytes payload.                                                                                         |
 | E6  | Request class `10` "Memory Tool"   | Undocumented                                                                                                                                                                                                                                      | Never send (PRO-025).                                                                                                                          |
-| E7  | Text extraction                    | Tables flattened in `*.md`                                                                                                                                                                                                                        | Verify layouts against the PDF before implementing.                                                                                            |
+| E7  | Text extraction                    | Tables flattened in `*.md`                                                                                                                                                                                                                        | Verify layouts against the original Lexicon PDF (kept outside the repository) before implementing.                                             |
 | E8  | Tap Source range                   | Starts at "Footswitch Pulse 1 (tip)", not in Appendix A                                                                                                                                                                                           | Start at `Sw1` (`0x1C`, momentary foot switch 1). Confirm on hardware.                                                                         |
 | E9  | Panel Button combinations          | Text names TIP/RING as a combination; table has no code                                                                                                                                                                                           | Offer only Left + Right (`15`/`2B`/`41`); Tip and Ring are single buttons.                                                                     |
 | E10 | Appendix D bug 2 address           | Dead end documented at `A:1 B:2 C:0`; a V1.00 unit (Nov 21 1996) has type `0x015B` "Cont Remap" at `A:1 B:2 C:3` and answers every address below it with `0x015B`                                                                                 | Detect the dead end by the echo (LRN-007), not by address. Observed on hardware in M8.                                                         |
 | E11 | Global Patch / Bypass sources      | DMP-011 ranges start at Pedal (`0x18`) and Tog1 (`0x19`); a V1.00 unit stores `0x17` / `0x18` in unused slots and describes the sources with that minimum and display units `0x29` ("None")                                                       | Accept the value below the first source as "None" in validation and display. Observed on hardware in M8.                                       |
 | E12 | Setup dump size                    | Layout is 44 bytes; "Global Bypass Level" exists only in V1.10. A V1.00 unit reports 43-byte setups (`SetupDump`, type `0x014C`) and a 258-byte combined dump (`0x0128`, 6 × 43)                                                                  | Accept 43-byte setups with the V1.00 layout. Observed on hardware in M8.                                                                       |
 | E13 | Setup dump order and single setups | "5 stored setups and an active setup"; order not stated. On a V1.00 unit the combined dump (`0x0128`) holds the active setup first, then stored setups 1–5, and every single-setup address (`A:1 B:13 C:n`, type `0x014C`) returns stored setup 1 | Back up and restore setups only through the combined dump; skip single setups on restore when the firmware has it. Observed on hardware in M8. |
+| E14 | Parameter-type shift               | Rev1 says most types are +1 in V1.10. Rev0 shows why: V1.10 inserts `0x010B` "Global Bypass Level" (Program Name is `0x010B` in V1.00). Types below `0x010B` keep their number; types from `0x010B` up shift by +1                                | Still resolve every type through the learned database (LRN-005). Use the rule only to cross-check the documents.                               |
+| E15 | Rev1 V1.10 "parameter index" type  | Patch and Global Patches tables give `0x0140` for V1.10, which breaks the +1 rule (V1.00 `0x0139`) and collides with "Destination parameter index" (`0x0140`). Expected `0x013A`                                                                  | Resolve through the learned database (LRN-005). Verify against the original Rev1 PDF (kept outside the repository) and a V1.10 unit.           |
+| E16 | Merge/parallel block limit         | Rev0 states a maximum of 3; Rev1 states 2 in V1.10 and 3 in V1.00                                                                                                                                                                                 | Limit by firmware version (`AudioRouting.MaxMixingBlocks`).                                                                                    |
+| E17 | Panel Button codes                 | `Tap` (`0x44`) and `Toggle A/B` (`0x45`) are listed as new in V1.10; Rev0 has neither                                                                                                                                                             | Send them only to V1.10 units (PAR-007).                                                                                                       |
 
 Edge cases:
 
@@ -484,10 +488,12 @@ Edge cases:
 ## 11. Related Specifications / Further Reading
 
 - [Roadmap](../docs/roadmap.md)
-- `legacy/MPX1_V1_1_MIDI_Impl_Rev1_original.pdf` — MPX 1 V1.10 MIDI Implementation Details (Lexicon 070-11835 Rev 1)
-- `legacy/MPX1_User_Guide_Rev1_original.pdf` — MPX 1 User Guide
-- `legacy/MPX1_V1_1_Adden_Rev1_original.pdf` — V1.10 addendum (MPX R1 support)
-- `legacy/MPX1_Presets_Rev1_original.pdf`, `legacy/MPX1_V1_1_Presets_Rev1_original.pdf` — factory preset lists
+- `legacy/MPX1_V1_1_MIDI_Impl_Rev1_original.md` — MPX 1 V1.10 MIDI Implementation Details (Lexicon 070-11835 Rev 1)
+- `legacy/MPX1_MIDI_Implmt_Rev0_original.md` — MPX 1 MIDI Implementation Details, V1.00 (Lexicon 070-11835)
+- `legacy/MPX1_User_Guide_Rev1_original.md`, `legacy/MPX1_User_Guide_Rev0_original.md` — MPX 1 User Guide
+- `legacy/MPX1_V1_1_Adden_Rev1_original.md` — V1.10 addendum (MPX R1 support)
+- `legacy/MPX1_Presets_Rev1_original.md`, `legacy/MPX1_V1_1_Presets_Rev1_original.md`, `legacy/MPX1_Presets_Rev0_original.md` — factory preset lists
+- The original Lexicon PDFs are kept outside the repository.
 - MIDI 1.0 Detailed Specification 4.2 — Universal Non-Real-Time Device Inquiry
 - Microsoft Learn: Native AOT deployment; `LibraryImport` source-generated P/Invoke
 - Avalonia documentation: Native AOT and compiled bindings

@@ -1,10 +1,9 @@
-name: CI
+name: Continuous Integration
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,32 +11,46 @@ permissions:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SOLUTION: BB84.MPX1.slnx
+  CONFIGURATION: Release
 
 jobs:
   build:
+    name: Build and Test
     runs-on: windows-latest
+    
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v6
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Restore
-        run: dotnet restore BB84.MPX1.slnx
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION }}
 
-      - name: Build
-        run: dotnet build BB84.MPX1.slnx -c Release --no-restore
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION }} --configuration ${{ env.CONFIGURATION }} --no-restore
 
       # Exit code 8 = no tests found; allowed while projects are still empty.
       # Hardware tests need a real MPX 1 and never run in CI.
-      - name: Test
-        run: dotnet test --solution BB84.MPX1.slnx -c Release --no-build -- --ignore-exit-code 8 --filter "TestCategory!=Hardware"
+      - name: Run tests
+        run: dotnet test --solution ${{ env.SOLUTION }} --configuration ${{ env.CONFIGURATION }} --no-build -- --ignore-exit-code 8 --filter "TestCategory!=Hardware" --report-trx --results-directory ${{ github.workspace }}/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: test-results/*.trx
 
       - name: Publish (Native AOT, win-x64)
-        run: dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
+        run: dotnet publish src/BB84.MPX1.App --configuration ${{ env.CONFIGURATION }} -r win-x64 -o artifacts/publish
 
-      - uses: actions/upload-artifact@v7
+      - name: Upload publish results
+        uses: actions/upload-artifact@v7
         with:
           name: BB84.MPX1-win-x64
           path: |

@@ -30,7 +30,7 @@ public sealed class ServiceTests
         Assert.AreEqual("Request ProgramDump active", MessageSummary.Describe(Request.ProgramDump(device, Request.ActiveProgram), null));
         Assert.AreEqual("Handshake AreYouThere", MessageSummary.Describe(new Handshake(device, HandshakeCommand.AreYouThere), null));
         Assert.AreEqual("Parameter Data A:0 B:2 C:1 D:2: 64", MessageSummary.Describe(new ParameterData(device, new byte[] { 0x64 }, address), null));
-        StringAssert.StartsWith(MessageSummary.Describe(null, new Mpx1FormatError(7, "Nibble above 0x0F")), "Invalid at byte 7");
+        Assert.StartsWith("Invalid at byte 7", MessageSummary.Describe(null, new Mpx1FormatError(7, "Nibble above 0x0F")));
     }
 
     [TestMethod]
@@ -68,20 +68,20 @@ public sealed class ServiceTests
     [Description("UI-005, UI-008: a transfer's status is its result, a cancel, a described failure, or kept when the session closed")]
     public async Task OperationStatus_RunAsync_MapsOutcomes()
     {
-        Assert.AreEqual("Done.", await OperationStatus.RunAsync(_ => Task.FromResult("Done.")));
-        Assert.AreEqual(OperationStatus.DeviceDidNotAnswer, await OperationStatus.RunAsync(_ => throw new Mpx1TimeoutException("x")));
-        Assert.AreEqual("Locked.", await OperationStatus.RunAsync(_ => throw new UnauthorizedAccessException("Locked.")));
-        Assert.AreEqual("Disk full.", await OperationStatus.RunAsync(_ => throw new IOException("Disk full.")));
+        Assert.AreEqual("Done.", await OperationStatus.RunAsync(_ => Task.FromResult("Done."), TestContext.CancellationToken));
+        Assert.AreEqual(OperationStatus.DeviceDidNotAnswer, await OperationStatus.RunAsync(_ => throw new Mpx1TimeoutException("x"), TestContext.CancellationToken));
+        Assert.AreEqual("Locked.", await OperationStatus.RunAsync(_ => throw new UnauthorizedAccessException("Locked."), TestContext.CancellationToken));
+        Assert.AreEqual("Disk full.", await OperationStatus.RunAsync(_ => throw new IOException("Disk full."), TestContext.CancellationToken));
 
         using CancellationTokenSource cancel = new();
         await cancel.CancelAsync();
         Assert.AreEqual(OperationStatus.Cancelled, await OperationStatus.RunAsync(ct => Task.FromCanceled<string>(ct), cancel.Token));
 
         // A disposed session cancels its pending request without the caller's token, and refuses new calls.
-        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new TaskCanceledException()));
-        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new ObjectDisposedException("session")));
+        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new TaskCanceledException(), TestContext.CancellationToken));
+        Assert.IsNull(await OperationStatus.RunAsync(_ => throw new ObjectDisposedException("session"), TestContext.CancellationToken));
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => OperationStatus.RunAsync(_ => throw new InvalidOperationException()));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => OperationStatus.RunAsync(_ => throw new InvalidOperationException(), TestContext.CancellationToken));
     }
 
     [TestMethod]
@@ -95,9 +95,9 @@ public sealed class ServiceTests
 
         TolerantDatabaseStore broken = new(new FailingStore(new UnauthorizedAccessException("Access denied.")));
         Assert.IsNull(await broken.TryLoadAsync(database.Key, TestContext.CancellationToken));
-        StringAssert.Contains(broken.LastError, "could not be read: Access denied.");
+        Assert.Contains("could not be read: Access denied.", broken.LastError ?? string.Empty);
         await broken.SaveAsync(database, TestContext.CancellationToken);
-        StringAssert.Contains(broken.LastError, "could not be saved: Access denied.");
+        Assert.Contains("could not be saved: Access denied.", broken.LastError ?? string.Empty);
 
         TolerantDatabaseStore working = new(new InMemoryParameterDatabaseStore());
         await working.SaveAsync(database, TestContext.CancellationToken);
@@ -153,7 +153,7 @@ public sealed class ServiceTests
         }
         await writer.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new[] { 1, 10 }, written);
+        Assert.AreSequenceEqual(new[] { 1, 10 }, written);
         Assert.AreEqual(1, settled);
     }
 

@@ -58,7 +58,7 @@ public sealed class ProgramEditorTests
         Assert.AreEqual("Preset 002", editor.Name);
         EffectBlockViewModel pitch = editor.Blocks[0];
         Assert.AreEqual("Detune (M)", pitch.SelectedAlgorithm!.Label);
-        CollectionAssert.AreEqual(new[] { "Mix", "Level", "Tune", "P Dly" }, pitch.Parameters.Select(p => p.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "Mix", "Level", "Tune", "P Dly" }, pitch.Parameters.Select(p => p.Name).ToArray());
         Assert.AreEqual(100, pitch.Parameters[0].Value);
         Assert.AreEqual("100%", pitch.Parameters[0].DisplayText);
         Assert.IsTrue(pitch.Parameters[2].HasOptions, "Tune has a unit option.");
@@ -83,10 +83,10 @@ public sealed class ProgramEditorTests
         Assert.IsTrue(editor.IsDirty);
         Assert.AreEqual(42, Simulator.ActiveProgram.EffectData[0][0]);
         Assert.AreEqual(77, Simulator.ActiveProgram.MasterMix);
-        CollectionAssert.AreEqual(stored, Simulator.GetProgram(1).ToBytes(), "Auditioning never stores.");
+        Assert.AreSequenceEqual(stored, Simulator.GetProgram(1).ToBytes(), "Auditioning never stores.");
 
         vm.Monitor.Flush();
-        Assert.IsTrue(vm.Monitor.Entries.Any(e => e.Summary.StartsWith("Program Dump active", StringComparison.Ordinal)));
+        Assert.Contains(e => e.Summary.StartsWith("Program Dump active", StringComparison.Ordinal), vm.Monitor.Entries);
     }
 
     [TestMethod]
@@ -100,7 +100,7 @@ public sealed class ProgramEditorTests
 
         editor.Tempo = 99;
         await Task.Delay(400, TestContext.CancellationToken);
-        CollectionAssert.AreEqual(active, Simulator.ActiveProgram.ToBytes());
+        Assert.AreSequenceEqual(active, Simulator.ActiveProgram.ToBytes());
 
         await editor.SendToActiveAsync();
         Assert.AreEqual((ushort)99, Simulator.ActiveProgram.Tempo);
@@ -119,7 +119,7 @@ public sealed class ProgramEditorTests
         editor.Blocks[0].SelectedAlgorithm = editor.Blocks[0].Algorithms.Single(a => a.Label == "no effect");
 
         Assert.AreEqual(0, editor.Program.Algorithms[0]);
-        CollectionAssert.AreEqual(new[] { "Mix", "Level" }, editor.Blocks[0].Parameters.Select(p => p.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "Mix", "Level" }, editor.Blocks[0].Parameters.Select(p => p.Name).ToArray());
         Assert.HasCount(2, soft.Destination.Parameters);
     }
 
@@ -130,7 +130,7 @@ public sealed class ProgramEditorTests
         await using MainWindowViewModel vm = await OpenSlotAsync(1);
         ProgramEditorViewModel editor = vm.ProgramEditor;
         RoutingRowViewModel third = editor.RoutingRows[3];
-        CollectionAssert.AreEqual(new[] { "Upper", "Split" }, third.Modes.Select(m => m.Label).ToArray());
+        Assert.AreSequenceEqual(new[] { "Upper", "Split" }, third.Modes.Select(m => m.Label).ToArray());
 
         third.SelectedMode = third.Modes.Single(m => m.Label == "Split");
 
@@ -166,7 +166,7 @@ public sealed class ProgramEditorTests
         Assert.AreEqual((byte)2, stored.DestinationEffectType);
         Assert.AreEqual((byte)2, stored.DestinationIndex);
         Assert.AreEqual(-72, (short)stored.DestinationMinimum, "Signed destination values are stored as words.");
-        Assert.IsFalse(patch.Destination.Types.Any(t => t.Label == "Arpeggiator"), "Arpeggiator parameters cannot be patched.");
+        Assert.DoesNotContain(t => t.Label == "Arpeggiator", patch.Destination.Types, "Arpeggiator parameters cannot be patched.");
 
         patch.Destination.SelectedType = patch.Destination.Types.Single(t => t.Label == "System");
         Assert.AreEqual("Master Mix", patch.Destination.SelectedParameter!.Label);

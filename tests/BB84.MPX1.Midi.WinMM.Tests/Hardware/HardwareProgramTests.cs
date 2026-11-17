@@ -71,8 +71,8 @@ public sealed class HardwareProgramTests
         File.WriteAllBytes(HardwareRig.ArtifactPath("programs", $"{number:D3} {Stamp()}.syx"), SyxFile.Write([dump]));
         Assert.AreEqual(expected, info.Name.Trim(), StringComparer.OrdinalIgnoreCase);
         Assert.AreEqual(info.Name.Trim(), dump.Program.Name.Trim());
-        CollectionAssert.AreEqual(info.Algorithms.ToArray(), dump.Program.Algorithms.ToArray());
-        CollectionAssert.AreEqual(dump.ToBytes(), Mpx1Codec.Encode(Mpx1Codec.Decode(dump.ToBytes())));
+        Assert.AreSequenceEqual(info.Algorithms.ToArray(), dump.Program.Algorithms.ToArray());
+        Assert.AreSequenceEqual(dump.ToBytes(), Mpx1Codec.Encode(Mpx1Codec.Decode(dump.ToBytes())));
     }
 
     [TestMethod]
@@ -100,7 +100,7 @@ public sealed class HardwareProgramTests
         rig.Log($"Cleared user programs left out (front panel numbers): {(skipped.Length == 0 ? "none" : string.Join(", ", skipped.Select(n => n + 1)))}.");
         Assert.IsTrue(skipped.All(ProgramSlots.IsUser), "Every preset is in the backup.");
         Assert.IsNotNull(content.Database);
-        CollectionAssert.AreEqual(file, SyxFile.Write(content.Messages));
+        Assert.AreSequenceEqual(file, SyxFile.Write(content.Messages));
         foreach (ProgramDump program in content.Programs.Where(p => ProgramSlots.IsUser(p.ProgramNumber)))
             rig.Log($"{program.ProgramNumber + 1:D3} {program.Program.Name}");
 
@@ -139,7 +139,7 @@ public sealed class HardwareProgramTests
             byte[] one = (await session.RequestAsync<ParameterData>(Request.ParameterData(rig.Device, stored[i].Address), TestContext.CancellationToken)).Data.ToArray();
             rig.Log($"Stored {i}: \"{name.ReadText(one).TrimEnd()}\", same as chunk {i}: {one.AsSpan().SequenceEqual(all.AsSpan(i * size, size))}");
         }
-        Assert.AreEqual((stored.Count + 1) * size, all.Length);
+        Assert.HasCount((stored.Count + 1) * size, all);
     }
 
     [TestMethod]
@@ -169,7 +169,7 @@ public sealed class HardwareProgramTests
             long written = watch.ElapsedMilliseconds;
             byte[] after = await dumps.ReadAsync(node, TestContext.CancellationToken);
             rig.Log($"{SystemDumps.DisplayName(kind)} at {node.Address}: {data.Length} bytes written in {written} ms, read back {(after.AsSpan().SequenceEqual(data) ? "identical" : "DIFFERENT")}.");
-            CollectionAssert.AreEqual(data, after, SystemDumps.DisplayName(kind));
+            Assert.AreSequenceEqual(data, after, SystemDumps.DisplayName(kind));
         }
     }
 
@@ -237,7 +237,7 @@ public sealed class HardwareProgramTests
         int[] differences = [.. Enumerable.Range(0, Math.Min(e.Length, a.Length)).Where(i => e[i] != a[i])];
         foreach (int i in differences.Take(20))
             rig.Log($"{what}: offset {i}: expected {e[i]:X2}, actual {a[i]:X2}");
-        Assert.AreEqual(e.Length, a.Length, $"Length {what}.");
+        Assert.HasCount(e.Length, a, $"Length {what}.");
         Assert.IsEmpty(differences, $"{differences.Length} bytes differ ({what}).");
     }
 }

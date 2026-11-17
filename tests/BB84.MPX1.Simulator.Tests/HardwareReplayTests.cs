@@ -121,7 +121,7 @@ public sealed class HardwareReplayTests
             IReadOnlyList<Mpx1Message> backup = await librarian.BackupAsync(kinds, cancellationToken: TestContext.CancellationToken);
 
             Assert.IsTrue(replay.IsComplete);
-            CollectionAssert.AreEqual(new[] { SystemDumpKind.AllSetups, SystemDumpKind.GlobalPatches, SystemDumpKind.BypassControllers, SystemDumpKind.RemapControllers }, kinds.ToArray());
+            Assert.AreSequenceEqual(new[] { SystemDumpKind.AllSetups, SystemDumpKind.GlobalPatches, SystemDumpKind.BypassControllers, SystemDumpKind.RemapControllers }, kinds.ToArray());
             ProgramDump[] programs = [.. backup.OfType<ProgramDump>()];
             Assert.IsTrue(Enumerable.Range(0, ProgramSlots.FirstUser).All(n => programs.Any(p => p.ProgramNumber == n)), "Every preset.");
             Assert.AreEqual("no exec on", programs.Single(p => p.ProgramNumber == 210).Program.Name.Trim());
@@ -132,8 +132,7 @@ public sealed class HardwareReplayTests
             Assert.HasCount(4, plan.Dumps);
             IReadOnlyList<ReadOnlyMemory<byte>> setups = SystemDumps.SplitSetups(plan.Dumps.Single(d => d.Data.Length == 258).Data);
             DumpField name = DumpLayouts.SetupV100.Fields.Single(f => f.Name == "Setup name");
-            CollectionAssert.AreEqual(new[] { "Setup 1", "Setup 1", "Setup 2", "Setup 3", "Setup 4", "Setup 5" },
-                setups.Select(s => name.ReadText(s.Span).TrimEnd()).ToArray(), "Active setup first, then stored setups 1-5.");
+            Assert.AreSequenceEqual(new[] { "Setup 1", "Setup 1", "Setup 2", "Setup 3", "Setup 4", "Setup 5" }, setups.Select(s => name.ReadText(s.Span).TrimEnd()).ToArray(), "Active setup first, then stored setups 1-5.");
         }
     }
 
@@ -156,8 +155,8 @@ public sealed class HardwareReplayTests
 
             Assert.IsTrue(replay.IsComplete);
             Assert.AreEqual("Clean DlyRvb", original.Name.Trim());
-            CollectionAssert.AreEqual(changed.ToBytes(), readBack.ToBytes());
-            CollectionAssert.AreEqual(original.ToBytes(), restored.ToBytes());
+            Assert.AreSequenceEqual(changed.ToBytes(), readBack.ToBytes());
+            Assert.AreSequenceEqual(original.ToBytes(), restored.ToBytes());
         }
     }
 
@@ -181,7 +180,7 @@ public sealed class HardwareReplayTests
             foreach ((SystemDumpKind kind, ControlTreeNode node, byte[] data) in before)
             {
                 await dumps.WriteAsync(kind, node, data, TestContext.CancellationToken);
-                CollectionAssert.AreEqual(data, await dumps.ReadAsync(node, TestContext.CancellationToken), SystemDumps.DisplayName(kind));
+                Assert.AreSequenceEqual(data, await dumps.ReadAsync(node, TestContext.CancellationToken), SystemDumps.DisplayName(kind));
             }
             Assert.IsTrue(replay.IsComplete);
         }

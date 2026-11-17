@@ -25,6 +25,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Deterministic>true</Deterministic>
     <NeutralLanguage>en-US</NeutralLanguage>
+    <AnalysisMode>recommended</AnalysisMode>
+    <EnableNETAnalyzers>True</EnableNETAnalyzers>
   </PropertyGroup>
 
   <!-- Metadata related properties -->

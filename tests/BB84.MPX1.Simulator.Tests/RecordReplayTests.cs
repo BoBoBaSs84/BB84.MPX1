@@ -45,9 +45,8 @@ public sealed class RecordReplayTests
         List<Mpx1Message> replayed = await RunScriptAsync(replay, ct);
 
         Assert.IsTrue(replay.IsComplete);
-        CollectionAssert.AreEqual(
-            live.Select(m => Convert.ToHexString(m.ToBytes())).ToArray(),
-            replayed.Select(m => Convert.ToHexString(m.ToBytes())).ToArray());
+        Assert.AreSequenceEqual(
+            live.Select(m => Convert.ToHexString(m.ToBytes())).ToArray(), replayed.Select(m => Convert.ToHexString(m.ToBytes())).ToArray());
     }
 
     [TestMethod]

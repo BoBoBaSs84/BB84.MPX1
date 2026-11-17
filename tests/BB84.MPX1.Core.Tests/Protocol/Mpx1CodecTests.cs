@@ -45,7 +45,7 @@ public sealed class Mpx1CodecTests
 
         Assert.AreEqual(message.GetType(), decoded.GetType());
         Assert.AreEqual(message.Device, decoded.Device);
-        CollectionAssert.AreEqual(first, decoded.ToBytes());
+        Assert.AreSequenceEqual(first, decoded.ToBytes());
     }
 
     [TestMethod]
@@ -56,7 +56,7 @@ public sealed class Mpx1CodecTests
 
         ParameterData data = (ParameterData)Mpx1Codec.Decode(frame);
 
-        CollectionAssert.AreEqual(new byte[] { 0x00 }, data.Data.ToArray());
+        Assert.AreSequenceEqual(new byte[] { 0x00 }, data.Data.ToArray());
         Assert.AreEqual(new ControlAddress(0, 2, 1, 2), data.Address);
     }
 
@@ -86,7 +86,7 @@ public sealed class Mpx1CodecTests
         RawLexiconMessage raw = (RawLexiconMessage)Mpx1Codec.Decode(frame);
 
         Assert.AreEqual(MessageClass.CompactProgramDump, raw.MessageClass);
-        CollectionAssert.AreEqual(frame, raw.ToBytes());
+        Assert.AreSequenceEqual(frame, raw.ToBytes());
     }
 
     [TestMethod]

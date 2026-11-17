@@ -13,7 +13,7 @@ public sealed class SysExAssemblerTests
         IReadOnlyList<byte[]> frames = assembler.Feed([0x00, 0x12, 0x01, 0x00, 0xF7]);
 
         Assert.HasCount(1, frames);
-        CollectionAssert.AreEqual(new byte[] { 0xF0, 0x06, 0x09, 0x00, 0x12, 0x01, 0x00, 0xF7 }, frames[0]);
+        Assert.AreSequenceEqual(new byte[] { 0xF0, 0x06, 0x09, 0x00, 0x12, 0x01, 0x00, 0xF7 }, frames[0]);
     }
 
     [TestMethod]
@@ -25,8 +25,8 @@ public sealed class SysExAssemblerTests
         IReadOnlyList<byte[]> frames = assembler.Feed([0x01, 0xF0, 0x01, 0xF8, 0x02, 0xF7, 0x55, 0xF0, 0x03, 0xF7]);
 
         Assert.HasCount(2, frames);
-        CollectionAssert.AreEqual(new byte[] { 0xF0, 0x01, 0x02, 0xF7 }, frames[0]);
-        CollectionAssert.AreEqual(new byte[] { 0xF0, 0x03, 0xF7 }, frames[1]);
+        Assert.AreSequenceEqual(new byte[] { 0xF0, 0x01, 0x02, 0xF7 }, frames[0]);
+        Assert.AreSequenceEqual(new byte[] { 0xF0, 0x03, 0xF7 }, frames[1]);
     }
 
     [TestMethod]
@@ -38,7 +38,7 @@ public sealed class SysExAssemblerTests
         IReadOnlyList<byte[]> frames = assembler.Feed([0xF0, 0x01, 0xF0, 0x02, 0xF7, 0xF0, 0x03, 0x90, 0x04, 0xF7]);
 
         Assert.HasCount(1, frames);
-        CollectionAssert.AreEqual(new byte[] { 0xF0, 0x02, 0xF7 }, frames[0]);
+        Assert.AreSequenceEqual(new byte[] { 0xF0, 0x02, 0xF7 }, frames[0]);
     }
 
     [TestMethod]

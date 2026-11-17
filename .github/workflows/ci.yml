@@ -49,6 +49,11 @@ jobs:
       - name: Publish (Native AOT, win-x64)
         run: dotnet publish src/BB84.MPX1.App --configuration ${{ env.CONFIGURATION }} -r win-x64 -o artifacts/publish
 
+      # A Native AOT publish leaves no managed app assembly behind.
+      - name: Verify Native AOT output
+        shell: pwsh
+        run: if (Test-Path artifacts/publish/BB84.MPX1.App.dll) { throw "Publish is not Native AOT." }
+
       - name: Upload publish results
         uses: actions/upload-artifact@v7
         with:

@@ -48,9 +48,8 @@ public sealed class LoopMidiSimulatorTests
         ParameterDatabase db = await new ParameterLearner(session).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
 
         SimulatorFixture fixture = DefaultFixture.CreateV110();
-        CollectionAssert.AreEquivalent(
-            fixture.Nodes.Select(n => $"{ControlAddress.From(n.Address)}={n.Type:X4}").ToArray(),
-            db.Root.DescendantsAndSelf().Select(n => $"{n.Address}={n.Type:X4}").ToArray());
+        Assert.AreSequenceEqual(
+            fixture.Nodes.Select(n => $"{ControlAddress.From(n.Address)}={n.Type:X4}").ToArray(), db.Root.DescendantsAndSelf().Select(n => $"{n.Address}={n.Type:X4}").ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
         Assert.IsEmpty(db.Gaps);
     }
 

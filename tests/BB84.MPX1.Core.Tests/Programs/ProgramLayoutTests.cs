@@ -30,8 +30,8 @@ public sealed class ProgramLayoutTests
     {
         ParameterBlockLayout layout = ParameterBlockLayout.Create(DetuneTypes, Describe, ProgramData.EffectDataSize);
 
-        CollectionAssert.AreEqual(new[] { 0, 1, 2, 4 }, layout.Parameters.Select(p => p.Offset).ToArray());
-        CollectionAssert.AreEqual(new[] { 1, 1, 2, 1 }, layout.Parameters.Select(p => p.Size).ToArray());
+        Assert.AreSequenceEqual(new[] { 0, 1, 2, 4 }, layout.Parameters.Select(p => p.Offset).ToArray());
+        Assert.AreSequenceEqual(new[] { 1, 1, 2, 1 }, layout.Parameters.Select(p => p.Size).ToArray());
         Assert.AreEqual(5, layout.UsedBytes);
 
         byte[] block = new byte[ProgramData.EffectDataSize];
@@ -53,7 +53,7 @@ public sealed class ProgramLayoutTests
 
         byte[] changed = layout.Write(block, 2, -5);
 
-        CollectionAssert.AreEqual(new byte[] { 0x64, 0x00, 0xFB, 0x01, 0x00 }, changed[..5]);
+        Assert.AreSequenceEqual(new byte[] { 0x64, 0x00, 0xFB, 0x01, 0x00 }, changed[..5]);
         Assert.AreEqual(0x5A, changed[31], "Bytes that belong to no parameter are left alone.");
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => layout.Write(block, 0, 101));
     }
@@ -93,8 +93,8 @@ public sealed class ProgramLayoutTests
         ProgramData changed = program.WithEffectData(3, block).WithModulatorBlock(adsr, new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
 
         Assert.AreEqual(0x42, changed.EffectData[3][0]);
-        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, changed.GetModulatorBlock(adsr).ToArray());
-        CollectionAssert.AreEqual(program.EffectData[2].ToArray(), changed.EffectData[2].ToArray());
+        Assert.AreSequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, changed.GetModulatorBlock(adsr).ToArray());
+        Assert.AreSequenceEqual(program.EffectData[2].ToArray(), changed.EffectData[2].ToArray());
         Assert.IsFalse(program.IsCleared);
         Assert.IsTrue((program with { Algorithms = [0xFF, 0, 0, 0, 0, 0] }).IsCleared);
     }
@@ -123,10 +123,10 @@ public sealed class ProgramLayoutTests
         SyxContent content = SyxFile.Read([.. foreign, .. file, .. corrupt]);
 
         Assert.HasCount(1, content.Messages);
-        CollectionAssert.AreEqual(file, content.Programs.Single().ToBytes());
+        Assert.AreSequenceEqual(file, content.Programs.Single().ToBytes());
         Assert.HasCount(2, content.Warnings);
-        StringAssert.Contains(content.Warnings[0], "not an MPX 1 frame");
-        StringAssert.StartsWith(content.Warnings[1], "Frame 3:");
+        Assert.Contains("not an MPX 1 frame", content.Warnings[0]);
+        Assert.StartsWith("Frame 3:", content.Warnings[1]);
     }
 
     [TestMethod]

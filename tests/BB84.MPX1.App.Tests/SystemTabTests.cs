@@ -56,8 +56,7 @@ public sealed class SystemTabTests
         await using MainWindowViewModel vm = await OpenSystemAsync();
         SystemViewModel system = vm.System;
 
-        CollectionAssert.AreEqual(new[] { "Setups", "Global Patches", "Bypass Controllers", "Remap Controllers", "Current Choices" },
-            system.Sections.Select(s => s.Title).ToArray());
+        Assert.AreSequenceEqual(new[] { "Setups", "Global Patches", "Bypass Controllers", "Remap Controllers", "Current Choices" }, system.Sections.Select(s => s.Title).ToArray());
         DumpSectionViewModel setups = system.Sections[0];
         Assert.HasCount(6, setups.Instances);
         Assert.AreEqual("Active setup", setups.Instances[0].Label);
@@ -96,7 +95,7 @@ public sealed class SystemTabTests
         byte[] stored = Simulator.GetValue(address)!;
         Assert.AreEqual(13, DumpLayouts.Setup.Fields.Single(f => f.Name == "LCD contrast").Read(stored));
         Assert.AreEqual("Studio", DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name").ReadText(stored).TrimEnd());
-        CollectionAssert.AreEqual(others, Simulator.GetValue(new ControlAddress(1, 13, 5)), "The other setups are written back unchanged.");
+        Assert.AreSequenceEqual(others, Simulator.GetValue(new ControlAddress(1, 13, 5)), "The other setups are written back unchanged.");
         Assert.IsFalse(setups.IsDirty);
     }
 
@@ -179,7 +178,7 @@ public sealed class SystemTabTests
         Assert.IsTrue(bypass.IsDirty);
         Assert.IsTrue(Field(bypass, "Master bypass").IsInvalid, "The imported file holds the illegal value again.");
         await bypass.WriteAsync();
-        StringAssert.Contains(vm.System.Status, "illegal value");
+        Assert.Contains("illegal value", vm.System.Status);
     }
 
     [TestMethod]

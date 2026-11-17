@@ -15,7 +15,7 @@ public sealed class ProgramDataTests
         byte[] bytes = program.ToBytes();
 
         Assert.HasCount(ProgramData.Size, bytes);
-        CollectionAssert.AreEqual(bytes, ProgramData.FromBytes(bytes).ToBytes());
+        Assert.AreSequenceEqual(bytes, ProgramData.FromBytes(bytes).ToBytes());
         Assert.AreEqual("Test Program", ProgramData.FromBytes(bytes).Name);
     }
 

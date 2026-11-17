@@ -48,9 +48,9 @@ public sealed partial class ArchitectureTests
     [Description("CON-001, AC-018: net10.0, the app publishes with Native AOT, and CI runs the win-x64 AOT publish")]
     public void App_IsNativeAot()
     {
-        StringAssert.Contains(ReadFile("Directory.Build.props"), "<TargetFramework>net10.0</TargetFramework>");
-        StringAssert.Contains(ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"), "<PublishAot>true</PublishAot>");
-        StringAssert.Contains(ReadFile(".github/workflows/ci.yml"), "dotnet publish src/BB84.MPX1.App -c Release -r win-x64");
+        Assert.Contains("<TargetFramework>net10.0</TargetFramework>", ReadFile("Directory.Build.props"));
+        Assert.Contains("<PublishAot>true</PublishAot>", ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"));
+        Assert.MatchesRegex(AotPublish(), ReadFile(".github/workflows/ci.yml"));
     }
 
     [TestMethod]
@@ -61,8 +61,8 @@ public sealed partial class ArchitectureTests
         int Part(string name) => int.Parse(VersionPart().Matches(props).Single(m => m.Groups[1].Value == name).Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
         Version expected = new(Part("Major"), Part("Minor"), Part("Patch"), 0);
 
-        StringAssert.StartsWith(MainWindowViewModel.Version, expected.ToString(3));
-        StringAssert.Contains(MainWindowViewModel.Title, MainWindowViewModel.Version);
+        Assert.StartsWith(expected.ToString(3), MainWindowViewModel.Version);
+        Assert.Contains(MainWindowViewModel.Version, MainWindowViewModel.Title);
         Assert.AreEqual(expected, AppAssembly.GetName().Version);
     }
 
@@ -70,10 +70,10 @@ public sealed partial class ArchitectureTests
     [Description("CON-002: warnings are errors and every library is AOT/trim analysed")]
     public void Build_TreatsTrimWarningsAsErrors()
     {
-        StringAssert.Contains(ReadFile("Directory.Build.props"), "<TreatWarningsAsErrors>true</TreatWarningsAsErrors>");
+        Assert.Contains("<TreatWarningsAsErrors>true</TreatWarningsAsErrors>", ReadFile("Directory.Build.props"));
         string targets = ReadFile("Directory.Build.targets");
-        StringAssert.Contains(targets, "<IsAotCompatible>true</IsAotCompatible>");
-        StringAssert.Contains(targets, "<IsTrimmable>true</IsTrimmable>");
+        Assert.Contains("<IsAotCompatible>true</IsAotCompatible>", targets);
+        Assert.Contains("<IsTrimmable>true</IsTrimmable>", targets);
     }
 
     [TestMethod]
@@ -99,7 +99,7 @@ public sealed partial class ArchitectureTests
     public void Dependencies_PointInwards()
     {
         Assert.IsEmpty(References(Core), "Core depends on nothing.");
-        CollectionAssert.AreEqual(new[] { "BB84.MPX1.Core" }, References(Midi), "Midi depends only on Core.");
+        Assert.AreSequenceEqual(new[] { "BB84.MPX1.Core" }, References(Midi), "Midi depends only on Core.");
         Assert.Contains("BB84.MPX1.Midi", References(WinMM).ToList(), "The WinMM adapter implements the Midi port.");
         string[] adapterAllowed = ["BB84.MPX1.Core", "BB84.MPX1.Midi"];
         CollectionAssert.IsSubsetOf(References(WinMM), adapterAllowed);
@@ -126,9 +126,9 @@ public sealed partial class ArchitectureTests
 
         // The release package refuses legacy and Lexicon material, and the release workflow uses it.
         string package = ReadFile("build/package.ps1");
-        StringAssert.Contains(package, "COM-001");
-        StringAssert.Contains(package, "legacy");
-        StringAssert.Contains(ReadFile(".github/workflows/release.yml"), "./build/package.ps1");
+        Assert.Contains("COM-001", package);
+        Assert.Contains("legacy", package);
+        Assert.Contains("./build/package.ps1", ReadFile(".github/workflows/release.yml"));
     }
 
     [TestMethod]
@@ -187,9 +187,9 @@ public sealed partial class ArchitectureTests
         foreach (Type type in viewModels.Where(t => t.Name is not ("ModulatorBlockViewModel" or "ControlNodeViewModel" or "SoftRowEntryViewModel" or "PanelButtonViewModel")))
             Assert.IsTrue(typeof(ObservableObject).IsAssignableFrom(type), $"{type.Name} must derive from ObservableObject.");
 
-        StringAssert.Contains(ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"), "<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>");
+        Assert.Contains("<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>", ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"));
         foreach (string view in SourceFiles("src/BB84.MPX1.App/Views", "*.axaml"))
-            StringAssert.Contains(File.ReadAllText(view), "x:CompileBindings=\"True\"", Path.GetFileName(view));
+            Assert.Contains("x:CompileBindings=\"True\"", File.ReadAllText(view), Path.GetFileName(view));
     }
 
     [TestMethod]
@@ -204,7 +204,7 @@ public sealed partial class ArchitectureTests
                 Assert.DoesNotContain("LibraryImport", text, file);
             Assert.DoesNotContain("[DllImport", text, file);
         }
-        StringAssert.Contains(ReadFile("src/BB84.MPX1.Midi.WinMM/NativeMethods.cs"), "winmm");
+        Assert.Contains("winmm", ReadFile("src/BB84.MPX1.Midi.WinMM/NativeMethods.cs"));
     }
 
     [TestMethod]
@@ -234,6 +234,9 @@ public sealed partial class ArchitectureTests
 
     [GeneratedRegex(@"JsonSerializer\.(Serialize|Deserialize)\(")]
     private static partial Regex JsonCall();
+
+    [GeneratedRegex(@"dotnet publish src/BB84\.MPX1\.App\b[^\n]*-r win-x64")]
+    private static partial Regex AotPublish();
 
     [GeneratedRegex(@"<Version(Major|Minor|Patch)>(\d+)</Version\1>")]
     private static partial Regex VersionPart();

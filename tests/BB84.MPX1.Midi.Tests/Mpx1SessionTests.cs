@@ -103,7 +103,7 @@ public sealed class Mpx1SessionTests
                 () => session.RequestAsync<SystemConfiguration>(request, TestContext.CancellationToken));
 
             Assert.AreEqual(3, ex.Attempts);
-            CollectionAssert.AreEqual(request.ToBytes(), ex.Frame.ToArray());
+            Assert.AreSequenceEqual(request.ToBytes(), ex.Frame.ToArray());
         }
     }
 

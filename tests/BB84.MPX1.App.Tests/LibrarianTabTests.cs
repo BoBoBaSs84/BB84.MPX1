@@ -65,7 +65,7 @@ public sealed class LibrarianTabTests
         Assert.AreEqual("Detune (M), 1-Band (M)", first.Algorithms, "Odd fixture programs load Detune (M) and 1-Band (M).");
         Assert.AreEqual("—", librarian.Slots[0].Algorithms);
         Assert.AreEqual("User", librarian.Slots[249].Kind);
-        CollectionAssert.AreEquivalent(new[] { "All setups (active and stored)", "Global Patches", "Bypass Controllers", "Remap Controllers" }, librarian.DumpOptions.Select(d => d.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "All setups (active and stored)", "Global Patches", "Bypass Controllers", "Remap Controllers" }, librarian.DumpOptions.Select(d => d.Name).ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
     }
 
     [TestMethod]
@@ -113,7 +113,7 @@ public sealed class LibrarianTabTests
         Select(librarian, 240);
         await librarian.ImportAsync();
 
-        CollectionAssert.AreEqual(Simulator.GetProgram(7).ToBytes(), Simulator.GetProgram(240).ToBytes());
+        Assert.AreSequenceEqual(Simulator.GetProgram(7).ToBytes(), Simulator.GetProgram(240).ToBytes());
         Assert.AreEqual("Preset 008", librarian.SelectedSlot!.Name);
         Assert.IsEmpty(Dialogs.Confirmations, "Importing into a user register does not ask.");
     }
@@ -160,7 +160,7 @@ public sealed class LibrarianTabTests
         await librarian.RestoreAsync();
         Assert.AreEqual("Restore cancelled.", librarian.Status);
         Assert.AreEqual("Scratch     ", Simulator.GetProgram(230).Name);
-        StringAssert.Contains(Dialogs.Confirmations[^1], "including 200 factory preset(s)");
+        Assert.Contains("including 200 factory preset(s)", Dialogs.Confirmations[^1]);
 
         Dialogs.Answers.Enqueue(true);
         await librarian.RestoreAsync();
@@ -233,7 +233,7 @@ public sealed class LibrarianTabTests
         Assert.AreEqual(snapshot, Convert.ToHexString(Simulator.GetProgram(210).ToBytes()));
         Assert.AreEqual("Restored cycle.syx.", vm.Librarian.Status);
         Assert.IsFalse(Simulator.IsCrashed);
-        CollectionAssert.AreEqual(new byte[] { 33 }, Simulator.GetValue(new ControlAddress(0, 0, 0, 0)));
+        Assert.AreSequenceEqual(new byte[] { 33 }, Simulator.GetValue(new ControlAddress(0, 0, 0, 0)));
     }
 
     [TestMethod]

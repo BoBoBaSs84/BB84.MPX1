@@ -37,16 +37,15 @@ public sealed class RoutingTests
     [Description("PRG-002: allowed routings depend on the path and the preceding block (rules tables)")]
     public void AllowedModes_FollowRuleTables()
     {
-        CollectionAssert.AreEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(AudioRouting.Default, 0, V110).ToArray());
-        CollectionAssert.AreEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(AudioRouting.Default, 3, V110).ToArray());
+        Assert.AreSequenceEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(AudioRouting.Default, 0, V110).ToArray());
+        Assert.AreSequenceEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(AudioRouting.Default, 3, V110).ToArray());
 
         // Double path after an upper/lower block: upper, lower, parallel, merge.
-        CollectionAssert.AreEqual(new[] { RoutingMode.Upper, RoutingMode.Lower, RoutingMode.Parallel, RoutingMode.Merge },
-            AudioRouting.AllowedModes(Example, 2, V110).ToArray());
+        Assert.AreSequenceEqual(new[] { RoutingMode.Upper, RoutingMode.Lower, RoutingMode.Parallel, RoutingMode.Merge }, AudioRouting.AllowedModes(Example, 2, V110).ToArray());
         // Directly after the split: upper or lower only.
-        CollectionAssert.AreEqual(new[] { RoutingMode.Upper, RoutingMode.Lower }, AudioRouting.AllowedModes(Example, 1, V110).ToArray());
+        Assert.AreSequenceEqual(new[] { RoutingMode.Upper, RoutingMode.Lower }, AudioRouting.AllowedModes(Example, 1, V110).ToArray());
         // After the merge the path is single again.
-        CollectionAssert.AreEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(Example, 5, V110).ToArray());
+        Assert.AreSequenceEqual(new[] { RoutingMode.Upper, RoutingMode.Split }, AudioRouting.AllowedModes(Example, 5, V110).ToArray());
     }
 
     [TestMethod]
@@ -71,7 +70,7 @@ public sealed class RoutingTests
         ImmutableArray<RoutingBlock> split = AudioRouting.SetMode(AudioRouting.Default, 3, RoutingMode.Split, V110);
 
         Assert.AreEqual((byte)RoutingMode.Merge, split[^1].Routing);
-        CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 1, 1, 1, 1, 1 }, split.Select(b => b.PatchType).ToArray());
+        Assert.AreSequenceEqual(new byte[] { 0, 0, 0, 1, 1, 1, 1, 1 }, split.Select(b => b.PatchType).ToArray());
         Assert.IsTrue(AudioRouting.IsValid(split, V110));
     }
 

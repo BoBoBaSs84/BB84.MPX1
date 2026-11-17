@@ -124,7 +124,7 @@ public sealed class FrontPanelTabTests
         vm.Monitor.Flush();
 
         Assert.StartsWith("Changed", Line(panel.TopLine));
-        Assert.AreEqual(frames, vm.Monitor.Entries.Count, "No requests while the tab is hidden.");
+        Assert.HasCount(frames, vm.Monitor.Entries, "No requests while the tab is hidden.");
     }
 
     [TestMethod]

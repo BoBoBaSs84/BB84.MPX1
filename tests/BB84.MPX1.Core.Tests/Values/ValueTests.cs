@@ -27,7 +27,7 @@ public sealed class ValueTests
     [Description("PAR-006")]
     public void MidiSpeed_OnlyFourValues()
     {
-        CollectionAssert.AreEqual(new byte[] { 0x01, 0x02, 0x04, 0x40 }, MidiSpeed.AllowedValues.ToArray());
+        Assert.AreSequenceEqual(new byte[] { 0x01, 0x02, 0x04, 0x40 }, MidiSpeed.AllowedValues.ToArray());
         Assert.IsTrue(MidiSpeed.IsValid(0x40));
         Assert.IsFalse(MidiSpeed.IsValid(0x03));
         Assert.AreEqual("Medium Slow", MidiSpeed.Name(0x04));
@@ -43,7 +43,7 @@ public sealed class ValueTests
 
         Assert.AreEqual(-12, value.Value);
         Assert.AreEqual("-12dB", DisplayUnitFormatter.Format(level, value));
-        CollectionAssert.AreEqual(new byte[] { 0xF4 }, ParameterValueCodec.Encode(level, null, -12));
+        Assert.AreSequenceEqual(new byte[] { 0xF4 }, ParameterValueCodec.Encode(level, null, -12));
     }
 
     [TestMethod]
@@ -60,7 +60,7 @@ public sealed class ValueTests
         Assert.AreEqual("500 ms", DisplayUnitFormatter.Format(delay, ms));
         Assert.AreEqual(1, ratio.Option);
         Assert.AreEqual("3:4", DisplayUnitFormatter.Format(delay, ratio));
-        CollectionAssert.AreEqual(new byte[] { 0xF4, 0x01, 0x00 }, ParameterValueCodec.Encode(delay, option, 500, 0));
+        Assert.AreSequenceEqual(new byte[] { 0xF4, 0x01, 0x00 }, ParameterValueCodec.Encode(delay, option, 500, 0));
     }
 
     [TestMethod]
@@ -78,7 +78,7 @@ public sealed class ValueTests
         Assert.AreEqual(1, ratio.Option);
         Assert.AreEqual(0x0304, ratio.Value);
         Assert.AreEqual("3:4", DisplayUnitFormatter.Format(rate, ratio));
-        CollectionAssert.AreEqual(new byte[] { 0x04, 0x83 }, ParameterValueCodec.Encode(rate, units, 0x0304, 1));
+        Assert.AreSequenceEqual(new byte[] { 0x04, 0x83 }, ParameterValueCodec.Encode(rate, units, 0x0304, 1));
     }
 
     [TestMethod]
@@ -87,7 +87,7 @@ public sealed class ValueTests
     {
         ParameterDescription mix = Describe(1, null, new UnitLimit(0, 100, 0x00));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => ParameterValueCodec.Encode(mix, null, 101));
-        CollectionAssert.AreEqual(new byte[] { 100 }, ParameterValueCodec.Encode(mix, null, 100));
+        Assert.AreSequenceEqual(new byte[] { 100 }, ParameterValueCodec.Encode(mix, null, 100));
     }
 
     [TestMethod]
@@ -95,7 +95,7 @@ public sealed class ValueTests
     public void Encode_UnsignedByteLimits()
     {
         ParameterDescription value = Describe(1, null, new UnitLimit(0, -1, 0x01));
-        CollectionAssert.AreEqual(new byte[] { 200 }, ParameterValueCodec.Encode(value, null, 200));
+        Assert.AreSequenceEqual(new byte[] { 200 }, ParameterValueCodec.Encode(value, null, 200));
     }
 
     [TestMethod]

@@ -60,8 +60,8 @@ public sealed class ParameterDatabaseTests
 
         Assert.AreEqual(new ControlAddress(0, 0), db.FindByPath("program", "MIX")!.Address);
         Assert.IsNull(db.FindByPath("Program", "Level"));
-        Assert.AreEqual(1, db.FindByName("Mix").Count());
-        Assert.AreEqual(2, db.FindByType(3).Count());
+        Assert.HasCount(1, db.FindByName("Mix"));
+        Assert.HasCount(2, db.FindByType(3));
     }
 
     [TestMethod]
@@ -135,7 +135,7 @@ public sealed class ParameterDatabaseTests
 
         Assert.AreEqual(db.Key, copy.Key);
         Assert.AreEqual(db.NodeCount, copy.NodeCount);
-        Assert.AreEqual(db.Descriptions.Count, copy.Descriptions.Count);
+        Assert.HasCount(db.Descriptions.Count, copy.Descriptions);
         Assert.AreEqual(json, ParameterDatabaseSerializer.Serialize(copy));
     }
 
@@ -187,6 +187,6 @@ public sealed class ParameterDatabaseTests
     {
         IReadOnlyList<byte[]> frames = SysExFrames.Split([0x00, 0xF0, 0x01, 0xF7, 0x55, 0xF7, 0xF0, 0xF7]);
         Assert.HasCount(2, frames);
-        CollectionAssert.AreEqual(new byte[] { 0xF0, 0x01, 0xF7 }, frames[0]);
+        Assert.AreSequenceEqual(new byte[] { 0xF0, 0x01, 0xF7 }, frames[0]);
     }
 }

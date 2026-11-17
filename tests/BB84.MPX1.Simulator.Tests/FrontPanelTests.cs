@@ -55,11 +55,10 @@ public sealed class FrontPanelTests
 
         await rig.Panel.ClickAsync(PanelButtons.Find("Program"), TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new byte[] { 0x03, 0x2F }, ButtonCodes(rig));
+        Assert.AreSequenceEqual(new byte[] { 0x03, 0x2F }, ButtonCodes(rig));
         // Document example: F0 06 09 00 01  01 00 00 00  0F 02  03 00 00 00  01 00 00 00 08 00 00 00  00 00 00 00 F7
-        CollectionAssert.AreEqual(
-            Convert.FromHexString("F006090001" + "01000000" + "0F02" + "03000000" + "01000000" + "08000000" + "00000000" + "F7"),
-            rig.Sent.Last().Frame.ToArray());
+        Assert.AreSequenceEqual(
+            Convert.FromHexString("F006090001" + "01000000" + "0F02" + "03000000" + "01000000" + "08000000" + "00000000" + "F7"), rig.Sent.Last().Frame.ToArray());
         Assert.AreEqual((byte)0x2F, rig.Simulator.LastButtonCode);
     }
 
@@ -74,7 +73,7 @@ public sealed class FrontPanelTests
         await rig.Panel.ClickAsync(PanelButtons.LeftAndRight, TestContext.CancellationToken);
         await rig.Panel.TurnAsync(-2, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new byte[] { 0x1D, 0x33, 0x15, 0x41, 0x43, 0x43 }, ButtonCodes(rig));
+        Assert.AreSequenceEqual(new byte[] { 0x1D, 0x33, 0x15, 0x41, 0x43, 0x43 }, ButtonCodes(rig));
         Assert.IsTrue(rig.Panel.HasV110Codes);
     }
 
@@ -121,7 +120,7 @@ public sealed class FrontPanelTests
 
         data = layout.Fields.Single(f => f.Name == "LCD contrast").Write(data, 12);
         await rig.Dumps.WriteAsync(SystemDumpKind.Setup, setups[1], data, TestContext.CancellationToken);
-        CollectionAssert.AreEqual(data, rig.Simulator.GetValue(setups[1].Address));
+        Assert.AreSequenceEqual(data, rig.Simulator.GetValue(setups[1].Address));
 
         byte[] bad = [.. data];
         bad[layout.Fields.Single(f => f.Name == "MIDI transmit speed").Offset] = 0x03;
@@ -151,7 +150,7 @@ public sealed class FrontPanelTests
         Assert.HasCount(1, rig.Dumps.Nodes(SystemDumpKind.GlobalPatches), "\"Global Ptch\" is not mistaken for the Patches dump.");
 
         byte[] data = await rig.Dumps.ReadAsync(patches, TestContext.CancellationToken);
-        CollectionAssert.AreEqual(rig.Simulator.ActiveProgram.GetPatchesDump(), data);
+        Assert.AreSequenceEqual(rig.Simulator.ActiveProgram.GetPatchesDump(), data);
 
         byte[] row = new byte[DumpLayouts.SoftRow.Size];
         row.AsSpan().Fill(0xFF);

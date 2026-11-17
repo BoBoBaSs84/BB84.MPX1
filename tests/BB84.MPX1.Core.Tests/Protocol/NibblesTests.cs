@@ -8,24 +8,24 @@ public sealed class NibblesTests
     [TestMethod]
     [Description("AC-001, PRO-001")]
     public void Encode_Byte_LowNibbleFirst()
-        => CollectionAssert.AreEqual(Hex.Parse("05 0A"), Nibbles.Encode([0xA5]));
+        => Assert.AreSequenceEqual(Hex.Parse("05 0A"), Nibbles.Encode([0xA5]));
 
     [TestMethod]
     [Description("AC-001, PRO-002")]
     public void EncodeWord_LeastSignificantNibbleFirst()
-        => CollectionAssert.AreEqual(Hex.Parse("05 02 01 00"), Nibbles.EncodeWord(0x0125));
+        => Assert.AreSequenceEqual(Hex.Parse("05 02 01 00"), Nibbles.EncodeWord(0x0125));
 
     [TestMethod]
     [Description("Spec section 9: parameter type count 0x01C0")]
     public void EncodeWord_ParameterTypeCount()
-        => CollectionAssert.AreEqual(Hex.Parse("00 0C 01 00"), Nibbles.EncodeWord(0x01C0));
+        => Assert.AreSequenceEqual(Hex.Parse("00 0C 01 00"), Nibbles.EncodeWord(0x01C0));
 
     [TestMethod]
     [Description("PRO-001")]
     public void Decode_RoundTripsAllByteValues()
     {
         byte[] all = [.. Enumerable.Range(0, 256).Select(i => (byte)i)];
-        CollectionAssert.AreEqual(all, Nibbles.Decode(Nibbles.Encode(all)));
+        Assert.AreSequenceEqual(all, Nibbles.Decode(Nibbles.Encode(all)));
     }
 
     [TestMethod]

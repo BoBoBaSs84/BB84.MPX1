@@ -84,7 +84,7 @@ public sealed class WorkbenchTests
     public async Task EditParameter_ReachesSimulatorAndMonitor()
     {
         await using MainWindowViewModel vm = await ConnectAndLearnAsync(CreateViewModel());
-        CollectionAssert.AreEqual(new[] { "Program", "System" }, vm.Tree.Roots.Select(r => r.Name).ToArray());
+        Assert.AreSequenceEqual(new[] { "Program", "System" }, vm.Tree.Roots.Select(r => r.Name).ToArray());
 
         // Pitch "no effect" is the algorithm loaded in the active program of the default fixture.
         ParameterPageViewModel page = await OpenAsync(vm, "Program", "Pitch", "no effect");
@@ -99,12 +99,12 @@ public sealed class WorkbenchTests
             mix.Value = v;
         await mix.Writer.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new byte[] { 60 }, Simulator.GetValue(new ControlAddress(0, 0, 0, 0)));
+        Assert.AreSequenceEqual(new byte[] { 60 }, Simulator.GetValue(new ControlAddress(0, 0, 0, 0)));
         Assert.AreEqual("60", mix.DisplayText, "The display text is read back from the device after the burst.");
 
         vm.Monitor.Flush();
-        Assert.IsTrue(vm.Monitor.Entries.Any(e => e.Direction == "→" && e.Summary.StartsWith("Parameter Data A:0 B:0 C:0 D:0: 3C", StringComparison.Ordinal)));
-        Assert.IsTrue(vm.Monitor.Entries.Any(e => e.Direction == "←" && e.Summary.StartsWith("Parameter Display A:0 B:0 C:0 D:0", StringComparison.Ordinal)));
+        Assert.Contains(e => e.Direction == "→" && e.Summary.StartsWith("Parameter Data A:0 B:0 C:0 D:0: 3C", StringComparison.Ordinal), vm.Monitor.Entries);
+        Assert.Contains(e => e.Direction == "←" && e.Summary.StartsWith("Parameter Display A:0 B:0 C:0 D:0", StringComparison.Ordinal), vm.Monitor.Entries);
     }
 
     [TestMethod]
@@ -121,7 +121,7 @@ public sealed class WorkbenchTests
 
         ParameterPageViewModel page = await OpenAsync(vm, "Program", "Pitch", "Detune (M)");
         Assert.IsTrue(page.HasNotice);
-        StringAssert.Contains(page.Notice, "Detune (M) is not loaded");
+        Assert.Contains("Detune (M) is not loaded", page.Notice ?? string.Empty);
         NumericParameterViewModel mix = (NumericParameterViewModel)page.Parameters.Single(p => p.Name == "Mix");
         Assert.IsFalse(mix.IsEditable);
         Assert.IsTrue(mix.IsLoaded, "Reading is safe; only writes can crash the unit.");
@@ -129,7 +129,7 @@ public sealed class WorkbenchTests
         mix.Value = 42;
         await Task.Delay(300, TestContext.CancellationToken);
 
-        Assert.IsFalse(sent.OfType<ParameterData>().Any(), "No Parameter Data frame may be sent.");
+        Assert.IsEmpty(sent.OfType<ParameterData>(), "No Parameter Data frame may be sent.");
         Assert.IsFalse(Simulator.IsCrashed);
     }
 
@@ -141,13 +141,13 @@ public sealed class WorkbenchTests
 
         ParameterPageViewModel midi = await OpenAsync(vm, "System", "MIDI");
         ChoiceParameterViewModel speed = (ChoiceParameterViewModel)midi.Parameters.Single(p => p.Name == "MIDI Speed");
-        CollectionAssert.AreEqual(new[] { 0x01, 0x02, 0x04, 0x40 }, speed.Choices.Select(c => c.Value).ToArray());
+        Assert.AreSequenceEqual(new[] { 0x01, 0x02, 0x04, 0x40 }, speed.Choices.Select(c => c.Value).ToArray());
         Assert.AreEqual(0x01, speed.Selected?.Value);
         Assert.IsTrue(midi.Parameters.Any(p => p.Name == "MIDI Dumps") is false, "Control levels are tree nodes, not editors.");
 
         ParameterPageViewModel panel = await OpenAsync(vm, "System", "Panel");
         Assert.IsInstanceOfType<DumpParameterViewModel>(panel.Parameters.Single(p => p.Name == "Display"));
-        StringAssert.StartsWith(((DumpParameterViewModel)panel.Parameters.Single(p => p.Name == "Display")).Preview, "32 bytes:");
+        Assert.StartsWith("32 bytes:", ((DumpParameterViewModel)panel.Parameters.Single(p => p.Name == "Display")).Preview);
         Assert.IsFalse(panel.Parameters.Single(p => p.Name == "Button").IsEditable, "Panel buttons belong to the front panel.");
 
         ParameterPageViewModel eq = await OpenAsync(vm, "Program", "Pitch", "no effect");
@@ -169,7 +169,7 @@ public sealed class WorkbenchTests
 
         Assert.IsTrue(second.IsConnected, second.StatusMessage);
         Assert.IsTrue(second.Learning.IsLearned);
-        StringAssert.StartsWith(second.Learning.Status, "Loaded from cache");
+        Assert.StartsWith("Loaded from cache", second.Learning.Status);
         Assert.IsFalse(second.Learning.NeedsLearning);
         Assert.HasCount(2, second.Tree.Roots);
     }
@@ -188,7 +188,7 @@ public sealed class WorkbenchTests
         await vm.ConnectAsync();
 
         Assert.IsFalse(vm.IsConnected);
-        StringAssert.Contains(vm.StatusMessage, "No answer from device ID 5");
+        Assert.Contains("No answer from device ID 5", vm.StatusMessage);
     }
 
     [TestMethod]
@@ -254,8 +254,8 @@ public sealed class WorkbenchTests
         await ConnectAndLearnAsync(vm);
 
         Assert.IsTrue(vm.Librarian.IsAttached);
-        StringAssert.Contains(vm.StatusMessage, "cache");
-        StringAssert.Contains(vm.StatusMessage, "Disk full.");
+        Assert.Contains("cache", vm.StatusMessage);
+        Assert.Contains("Disk full.", vm.StatusMessage);
     }
 
     private sealed class UnwritableStore : IParameterDatabaseStore

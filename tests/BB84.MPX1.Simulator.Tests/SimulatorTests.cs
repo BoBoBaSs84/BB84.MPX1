@@ -67,7 +67,7 @@ public sealed class SimulatorTests
             Assert.AreEqual(Types.Tune, type.Type);
             Assert.AreEqual(Types.TuneOption, description.OptionType);
             Assert.AreEqual("Tune ", label.Label);
-            CollectionAssert.AreEqual(new byte[] { 0x0A, 0x01 }, data.Data.ToArray(), "Tune value followed by its option byte");
+            Assert.AreSequenceEqual(new byte[] { 0x0A, 0x01 }, data.Data.ToArray(), "Tune value followed by its option byte");
             Assert.AreEqual("10", display.Text);
         }
     }
@@ -188,7 +188,7 @@ public sealed class SimulatorTests
             AllEffectParameters all = await session.RequestAsync<AllEffectParameters>(Request.AllEffectParameters(Device, 1), TestContext.CancellationToken);
 
             Assert.AreEqual("Detune (M)", detune.Parameters.Name.Trim());
-            CollectionAssert.AreEqual(new[] { Types.Mix, Types.Level, Types.Tune, Types.PreDelay }, detune.Parameters.ParameterTypes.ToArray());
+            Assert.AreSequenceEqual(new[] { Types.Mix, Types.Level, Types.Tune, Types.PreDelay }, detune.Parameters.ParameterTypes.ToArray());
             Assert.AreEqual("Detune (M)", all.Effects[0].Name.Trim(), "Program 1 runs pitch algorithm 1");
         }
     }
@@ -205,7 +205,7 @@ public sealed class SimulatorTests
             ParameterData data = await session.RequestAsync<ParameterData>(Request.ParameterData(Device, new ControlAddress(1, 11, 0, 0)), TestContext.CancellationToken);
 
             Assert.AreEqual((ushort)0, description.Size);
-            Assert.AreEqual(DefaultFixture.BrokenSizeDumpLength, data.Data.Length);
+            Assert.HasCount(DefaultFixture.BrokenSizeDumpLength, data.Data);
         }
     }
 
@@ -291,8 +291,8 @@ public sealed class SimulatorTests
         string json = SimulatorFixtureSerializer.Serialize(fixture);
         SimulatorFixture copy = SimulatorFixtureSerializer.Deserialize(json);
 
-        Assert.AreEqual(fixture.Nodes.Count, copy.Nodes.Count);
-        Assert.AreEqual(fixture.Descriptions.Count, copy.Descriptions.Count);
+        Assert.HasCount(fixture.Nodes.Count, copy.Nodes);
+        Assert.HasCount(fixture.Descriptions.Count, copy.Descriptions);
         Assert.AreEqual(fixture.Programs[42].Hex, copy.Programs[42].Hex);
         Assert.AreEqual(json, SimulatorFixtureSerializer.Serialize(copy));
     }

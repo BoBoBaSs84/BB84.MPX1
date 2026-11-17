@@ -56,9 +56,8 @@ public sealed class LearningTests
 
             Assert.IsLessThan(TimeSpan.FromSeconds(5), TimeProvider.System.GetElapsedTime(start));
             SimulatorFixture fixture = DefaultFixture.CreateV110();
-            CollectionAssert.AreEquivalent(
-                fixture.Nodes.Select(n => $"{ControlAddress.From(n.Address)}={n.Type:X4}").ToArray(),
-                db.Root.DescendantsAndSelf().Select(n => $"{n.Address}={n.Type:X4}").ToArray());
+            Assert.AreSequenceEqual(
+                fixture.Nodes.Select(n => $"{ControlAddress.From(n.Address)}={n.Type:X4}").ToArray(), db.Root.DescendantsAndSelf().Select(n => $"{n.Address}={n.Type:X4}").ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder);
             Assert.HasCount(0x01C0, db.Descriptions);
             Assert.IsEmpty(db.Gaps);
             Assert.AreEqual(LearningPhase.Done, reports[^1].Phase);
@@ -78,8 +77,8 @@ public sealed class LearningTests
 
             AlgorithmParameters detune = db.FindAlgorithm(EffectType.Pitch, 1)!;
             Assert.AreEqual("Detune (M)", detune.Name);
-            CollectionAssert.AreEqual(new[] { Types.Mix, Types.Level, Types.Tune, Types.PreDelay }, detune.Types.ToArray());
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 4 }, db.Layout(EffectType.Pitch, 1)!.Parameters.Select(p => p.Offset).ToArray());
+            Assert.AreSequenceEqual(new[] { Types.Mix, Types.Level, Types.Tune, Types.PreDelay }, detune.Types.ToArray());
+            Assert.AreSequenceEqual(new[] { 0, 1, 2, 4 }, db.Layout(EffectType.Pitch, 1)!.Parameters.Select(p => p.Offset).ToArray());
             Assert.AreEqual(2, db.AlgorithmCount(EffectType.Pitch));
             Assert.AreEqual(0, db.AlgorithmCount(EffectType.Reverb), "The fixture tree has no reverb algorithms.");
 
@@ -92,9 +91,8 @@ public sealed class LearningTests
             Assert.AreEqual(5 + 11, sent.Count(m => m is Request { RequestedClass: MessageClass.EffectParameters }));
 
             ParameterDatabase reloaded = ParameterDatabaseSerializer.Deserialize(ParameterDatabaseSerializer.Serialize(db));
-            CollectionAssert.AreEqual(
-                db.Algorithms.Select(a => $"{a.Effect}/{a.Algorithm}/{a.Name}/{string.Join(',', a.Types)}").ToArray(),
-                reloaded.Algorithms.Select(a => $"{a.Effect}/{a.Algorithm}/{a.Name}/{string.Join(',', a.Types)}").ToArray());
+            Assert.AreSequenceEqual(
+                db.Algorithms.Select(a => $"{a.Effect}/{a.Algorithm}/{a.Name}/{string.Join(',', a.Types)}").ToArray(), reloaded.Algorithms.Select(a => $"{a.Effect}/{a.Algorithm}/{a.Name}/{string.Join(',', a.Types)}").ToArray());
         }
     }
 
@@ -121,7 +119,7 @@ public sealed class LearningTests
             ParameterDatabase second = await new ParameterLearner(session, store).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
 
             Assert.AreSame(first, second);
-            Assert.IsFalse(sent.Any(m => m is Request { RequestedClass: MessageClass.ParameterDescription or MessageClass.ParameterType }));
+            Assert.DoesNotContain(m => m is Request { RequestedClass: MessageClass.ParameterDescription or MessageClass.ParameterType }, sent);
         }
     }
 
@@ -164,8 +162,8 @@ public sealed class LearningTests
 
             Assert.AreEqual((ushort)542, db.Describe(Types.BrokenSizeDump)!.Size);
             Assert.IsTrue(db.Find(KnownBugs.DeadEndAddress)!.IsDeadEnd);
-            Assert.IsFalse(sent.Any(m => m is Request { RequestedClass: MessageClass.ParameterType } r
-                && r.GetControlAddress().Depth == 4 && r.GetControlAddress().Parent() == KnownBugs.DeadEndAddress));
+            Assert.DoesNotContain(m => m is Request { RequestedClass: MessageClass.ParameterType } r
+                && r.GetControlAddress().Depth == 4 && r.GetControlAddress().Parent() == KnownBugs.DeadEndAddress, sent);
         }
     }
 
@@ -190,7 +188,7 @@ public sealed class LearningTests
             Assert.IsTrue(node.IsDeadEnd);
             Assert.IsEmpty(node.Children);
             Assert.IsEmpty(db.Gaps);
-            Assert.AreEqual(1, sent.Count(m => m is Request { RequestedClass: MessageClass.ParameterType } r && r.GetControlAddress().Parent() == deadEnd));
+            Assert.ContainsSingle(m => m is Request { RequestedClass: MessageClass.ParameterType } r && r.GetControlAddress().Parent() == deadEnd, sent);
             Assert.IsNotNull(db.Find(new ControlAddress(1, 2, 4)), "The walk continues after the dead end.");
         }
     }
@@ -250,8 +248,8 @@ public sealed class LearningTests
             UnloadedAlgorithmException ex = await Assert.ThrowsExactlyAsync<UnloadedAlgorithmException>(
                 () => editor.WriteValueAsync(new ControlAddress(0, 0, 1, 2), 10, 1, TestContext.CancellationToken));
 
-            StringAssert.Contains(ex.Message, "Detune (M)");
-            Assert.IsFalse(sent.Any(m => m is ParameterData));
+            Assert.Contains("Detune (M)", ex.Message);
+            Assert.DoesNotContain(m => m is ParameterData, sent);
             Assert.IsFalse(simulator.IsCrashed);
         }
     }
@@ -292,7 +290,7 @@ public sealed class LearningTests
             await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => editor.WriteAsync(speed, new byte[] { 0x03 }, TestContext.CancellationToken));
             await editor.WriteAsync(speed, new byte[] { 0x40 }, TestContext.CancellationToken);
 
-            CollectionAssert.AreEqual(new byte[] { 0x40 }, simulator.GetValue(speed));
+            Assert.AreSequenceEqual(new byte[] { 0x40 }, simulator.GetValue(speed));
         }
     }
 

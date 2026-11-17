@@ -13,9 +13,8 @@ public sealed class WinMMMidiTransportTests
     {
         IReadOnlyList<MidiPortInfo> ports = WinMMMidiTransport.ToPorts(["USB MIDI", "Synth", "USB MIDI", "USB MIDI"]);
 
-        CollectionAssert.AreEqual(
-            new[] { "USB MIDI", "Synth", "USB MIDI (2)", "USB MIDI (3)" },
-            ports.Select(p => p.Id.Value).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "USB MIDI", "Synth", "USB MIDI (2)", "USB MIDI (3)" }, ports.Select(p => p.Id.Value).ToArray());
     }
 
     [TestMethod]
@@ -106,7 +105,7 @@ public sealed class WinMMMidiTransportTests
 
         await transport.SendSysExAsync(frame, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(frame, await ReceiveSysExAsync(transport));
+        Assert.AreSequenceEqual(frame, await ReceiveSysExAsync(transport));
     }
 
     [TestMethod]
@@ -120,7 +119,7 @@ public sealed class WinMMMidiTransportTests
         await transport.SendSysExAsync(frame, TestContext.CancellationToken);
 
         byte[] received = await ReceiveSysExAsync(transport);
-        CollectionAssert.AreEqual(frame, Mpx1Codec.Encode(Mpx1Codec.Decode(received)));
+        Assert.AreSequenceEqual(frame, Mpx1Codec.Encode(Mpx1Codec.Decode(received)));
     }
 
     [TestMethod]
@@ -156,7 +155,7 @@ public sealed class WinMMMidiTransportTests
 
         await transport.SendSysExAsync(frame, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(frame, await ReceiveSysExAsync(transport));
+        Assert.AreSequenceEqual(frame, await ReceiveSysExAsync(transport));
     }
 
     [TestMethod]
@@ -170,7 +169,7 @@ public sealed class WinMMMidiTransportTests
         {
             byte[] frame = Frame(100 + i);
             await transport.SendSysExAsync(frame, TestContext.CancellationToken);
-            CollectionAssert.AreEqual(frame, await ReceiveSysExAsync(transport));
+            Assert.AreSequenceEqual(frame, await ReceiveSysExAsync(transport));
         }
     }
 
@@ -187,7 +186,7 @@ public sealed class WinMMMidiTransportTests
         {
             byte[] frame = Frame(20 + i);
             await transport.SendSysExAsync(frame, TestContext.CancellationToken);
-            CollectionAssert.AreEqual(frame, await ReceiveSysExAsync(transport));
+            Assert.AreSequenceEqual(frame, await ReceiveSysExAsync(transport));
 
             await transport.CloseAsync(TestContext.CancellationToken);
             Assert.IsFalse(transport.IsOpen);

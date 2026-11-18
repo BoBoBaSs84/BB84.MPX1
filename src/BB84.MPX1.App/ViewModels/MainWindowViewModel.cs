@@ -1,5 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels.Editing;
@@ -14,7 +13,8 @@ namespace BB84.MPX1.App.ViewModels;
 /// The workbench: connection toolbar, control tree, parameter page and MIDI monitor. Owns the live
 /// <see cref="DeviceConnection"/>.
 /// </summary>
-public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDisposable
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class MainWindowViewModel : IAsyncDisposable
 {
     private readonly IMidiPortCatalog _catalog;
     private readonly SettingsStore _settingsStore;
@@ -35,6 +35,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     /// <param name="time">Time source.</param>
     public MainWindowViewModel(IMidiPortCatalog catalog, SettingsStore settingsStore, IParameterDatabaseStore databaseStore, IUiDispatcher dispatcher, IUserDialogs dialogs, TimeProvider time)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _firmware = "";
+        _statusMessage = "Not connected.";
+        _isMonitorVisible = true;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         _databaseStore = new TolerantDatabaseStore(databaseStore ?? throw new ArgumentNullException(nameof(databaseStore)));
@@ -83,7 +87,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public LibrarianViewModel Librarian { get; }
 
     /// <summary>Gets or sets the selected center tab.</summary>
-    [ObservableProperty]
     public partial int SelectedTab { get; set; }
 
     /// <summary>Gets the application version, for example <c>1.0.0</c> (the build metadata after '+' is dropped).</summary>
@@ -108,30 +111,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public DeviceConnection? Connection => _connection;
 
     /// <summary>Gets or sets a value indicating whether a device is connected.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDisconnected))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(TestConnectionCommand), nameof(LearnCommand), nameof(RelearnCommand))]
+    [AlsoNotify(nameof(IsDisconnected))]
+    [NotifyCanExecuteChanged(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(TestConnectionCommand), nameof(LearnCommand), nameof(RelearnCommand))]
     public partial bool IsConnected { get; set; }
 
     /// <summary>Gets a value indicating whether no device is connected.</summary>
     public bool IsDisconnected => !IsConnected;
 
     /// <summary>Gets or sets a value indicating whether a connect, test or learn operation runs.</summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(TestConnectionCommand), nameof(LearnCommand), nameof(RelearnCommand))]
+    [NotifyCanExecuteChanged(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(TestConnectionCommand), nameof(LearnCommand), nameof(RelearnCommand))]
     public partial bool IsBusy { get; set; }
 
     /// <summary>Gets or sets the firmware text, for example <c>V1.10 (Mar 30 1998 17:51:03)</c>.</summary>
-    [ObservableProperty]
-    public partial string Firmware { get; set; } = "";
+    public partial string Firmware { get; set; }
 
     /// <summary>Gets or sets the status-bar message.</summary>
-    [ObservableProperty]
-    public partial string StatusMessage { get; set; } = "Not connected.";
+    public partial string StatusMessage { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the monitor panel is expanded.</summary>
-    [ObservableProperty]
-    public partial bool IsMonitorVisible { get; set; } = true;
+    public partial bool IsMonitorVisible { get; set; }
 
     /// <summary>
     /// Loads the settings and, when the last ports are still present, reconnects to them.
@@ -160,11 +158,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     /// <summary>Re-reads the port lists.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void RefreshPorts() => Setup.RefreshPorts();
 
     /// <summary>Connects with the setup form's ports and device ID, then loads the cached database.</summary>
-    [RelayCommand(CanExecute = nameof(CanConnect))]
+    [ActionCommand(CanExecute = nameof(CanConnect))]
     public async Task ConnectAsync()
     {
         if (Setup.SelectedInput is not MidiPortChoice input || Setup.SelectedOutput is not MidiPortChoice output)
@@ -212,7 +210,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     /// <summary>Closes the ports.</summary>
-    [RelayCommand(CanExecute = nameof(CanDisconnect))]
+    [ActionCommand(CanExecute = nameof(CanDisconnect))]
     public async Task DisconnectAsync()
     {
         _learnCancel?.Cancel();
@@ -221,7 +219,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     /// <summary>Checks the connection with ARE_YOU_THERE (SES-006).</summary>
-    [RelayCommand(CanExecute = nameof(CanUseConnection))]
+    [ActionCommand(CanExecute = nameof(CanUseConnection))]
     public async Task TestConnectionAsync()
     {
         if (_connection is not { } connection)
@@ -242,15 +240,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     /// <summary>Learns the connected firmware, or loads it from the cache (UI-002).</summary>
-    [RelayCommand(CanExecute = nameof(CanUseConnection))]
+    [ActionCommand(CanExecute = nameof(CanUseConnection))]
     public Task LearnAsync() => RunLearningAsync(force: false);
 
     /// <summary>Learns the connected firmware again, ignoring the cache (UI-002).</summary>
-    [RelayCommand(CanExecute = nameof(CanUseConnection))]
+    [ActionCommand(CanExecute = nameof(CanUseConnection))]
     public Task RelearnAsync() => RunLearningAsync(force: true);
 
     /// <summary>Cancels a running learn (LRN-003).</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void CancelLearning() => _learnCancel?.Cancel();
 
     /// <summary>Saves the settings and closes the connection.</summary>
@@ -397,11 +395,5 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     private static string ReadVersion()
-    {
-        string? informational = typeof(MainWindowViewModel).Assembly
-            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
-            .FirstOrDefault()?.InformationalVersion;
-        return informational is null ? "dev" : informational.Split('+')[0];
-    }
+        => AppInfo.InformationalVersion is { Length: > 0 } informational ? informational.Split('+')[0] : "dev";
 }

@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
@@ -36,7 +36,7 @@ public sealed partial class LibrarianViewModel
     }
 
     /// <summary>Reads the slot list (PRG-007).</summary>
-    [RelayCommand(CanExecute = nameof(CanRun))]
+    [ActionCommand(CanExecute = nameof(CanRun))]
     public Task RefreshAsync() => RunAsync("Reading the program list…", async (librarian, progress, ct) =>
     {
         ReplaceSlots(await librarian.ListAsync(progress, ct));
@@ -44,7 +44,7 @@ public sealed partial class LibrarianViewModel
     });
 
     /// <summary>Copies the selected slot into the active program (PRG-001).</summary>
-    [RelayCommand(CanExecute = nameof(CanRunOnSelection))]
+    [ActionCommand(CanExecute = nameof(CanRunOnSelection))]
     public Task LoadToActiveAsync() => RunOnSelectionAsync("Loading…", async (librarian, slot, _, ct) =>
     {
         await librarian.LoadToActiveAsync(slot.Number, ct);
@@ -52,7 +52,7 @@ public sealed partial class LibrarianViewModel
     });
 
     /// <summary>Opens the selected slot in the program editor.</summary>
-    [RelayCommand(CanExecute = nameof(CanRunOnSelection))]
+    [ActionCommand(CanExecute = nameof(CanRunOnSelection))]
     public void Edit()
     {
         if (SelectedSlot is { } slot)
@@ -73,7 +73,7 @@ public sealed partial class LibrarianViewModel
     }
 
     /// <summary>Renames the selected slot to <see cref="RenameText"/>; presets need confirmation (PRG-004).</summary>
-    [RelayCommand(CanExecute = nameof(CanRunOnSelection))]
+    [ActionCommand(CanExecute = nameof(CanRunOnSelection))]
     public Task RenameAsync() => RunOnSelectionAsync("Renaming…", async (librarian, slot, _, ct) =>
     {
         string name = ProgramFields.NormalizeName(RenameText);

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -9,6 +9,7 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>Slider/spinner editor for 1- and 2-byte numeric parameters, with an optional unit option (PAR-008).</summary>
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
 public sealed partial class NumericParameterViewModel : ParameterViewModel
 {
     private readonly ParameterDescription? _option;
@@ -36,19 +37,15 @@ public sealed partial class NumericParameterViewModel : ParameterViewModel
     public bool HasOptions => Options.Count > 0;
 
     /// <summary>Gets or sets the minimum of the selected unit.</summary>
-    [ObservableProperty]
     public partial int Minimum { get; set; }
 
     /// <summary>Gets or sets the maximum of the selected unit.</summary>
-    [ObservableProperty]
     public partial int Maximum { get; set; }
 
     /// <summary>Gets or sets the value.</summary>
-    [ObservableProperty]
     public partial int Value { get; set; }
 
     /// <summary>Gets or sets the selected option.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedOption { get; set; }
 
     /// <summary>Gets the selected unit/limit triple.</summary>

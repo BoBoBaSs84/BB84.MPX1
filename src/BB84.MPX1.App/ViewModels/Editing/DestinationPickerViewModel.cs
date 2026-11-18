@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
@@ -14,7 +14,8 @@ namespace BB84.MPX1.App.ViewModels.Editing;
 /// Two-step destination picker for soft-row entries and patches: block or controller first, then a parameter of
 /// that block's current algorithm by name. The stored value is the parameter's index (document, Soft Values).
 /// </summary>
-public sealed partial class DestinationPickerViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class DestinationPickerViewModel
 {
     private readonly IProgramDocument _document;
     private readonly bool _allowSystem;
@@ -49,11 +50,9 @@ public sealed partial class DestinationPickerViewModel : ObservableObject
     public ObservableCollection<ChoiceItem> Parameters { get; } = [];
 
     /// <summary>Gets or sets the selected type.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedType { get; set; }
 
     /// <summary>Gets or sets the selected parameter.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedParameter { get; set; }
 
     /// <summary>Raised when the user changed the destination.</summary>

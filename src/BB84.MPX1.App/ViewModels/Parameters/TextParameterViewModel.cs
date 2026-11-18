@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -8,6 +8,7 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>Text editor for name parameters (display units <c>0x25</c>, <c>0x30</c>).</summary>
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
 public sealed partial class TextParameterViewModel : ParameterViewModel
 {
     private readonly CoalescingWriter<string> _writer;
@@ -18,14 +19,17 @@ public sealed partial class TextParameterViewModel : ParameterViewModel
     /// <param name="readOnlyReason">Why the parameter is read-only, or <see langword="null"/>.</param>
     public TextParameterViewModel(ControlTreeNode node, ParameterContext context, string? readOnlyReason)
         : base(node, context, readOnlyReason)
-        => _writer = CreateWriter<string>((v, ct) => Context.Editor.WriteAsync(Node.Address, Encode(v), ct));
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _text = "";
+        _writer = CreateWriter<string>((v, ct) => Context.Editor.WriteAsync(Node.Address, Encode(v), ct));
+    }
 
     /// <summary>Gets the maximum text length.</summary>
     public int MaxLength => Node.Description.Size;
 
     /// <summary>Gets or sets the text.</summary>
-    [ObservableProperty]
-    public partial string Text { get; set; } = "";
+    public partial string Text { get; set; }
 
     /// <inheritdoc/>
     public override void CancelPendingWrites() => _writer.Dispose();

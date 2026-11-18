@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Programs;
@@ -23,64 +23,50 @@ public sealed partial class ProgramEditorViewModel
     public static IReadOnlyList<ChoiceItem> Meters { get; } = [.. ProgramFields.Meters.Select((n, i) => new ChoiceItem(i, n))];
 
     /// <summary>Gets or sets the name (12 characters).</summary>
-    [ObservableProperty]
-    public partial string Name { get; set; } = "";
+    public partial string Name { get; set; }
 
     /// <summary>Gets or sets the tempo in BPM.</summary>
-    [ObservableProperty]
     public partial int Tempo { get; set; }
 
     /// <summary>Gets or sets the tempo source.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedTempoSource { get; set; }
 
     /// <summary>Gets or sets the beat value.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedBeatValue { get; set; }
 
     /// <summary>Gets or sets the tap source.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedTapSource { get; set; }
 
     /// <summary>Gets or sets the tap average (1–8 beats).</summary>
-    [ObservableProperty]
     public partial int TapAverage { get; set; }
 
     /// <summary>Gets or sets the tap source level (0–127).</summary>
-    [ObservableProperty]
     public partial int TapSourceLevel { get; set; }
 
     /// <summary>Gets or sets the meter source.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedMeter { get; set; }
 
     /// <summary>Gets or sets the master level in dB (−96 = Off … 0).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MasterLevelText))]
+    [AlsoNotify(nameof(MasterLevelText))]
     public partial int MasterLevel { get; set; }
 
     /// <summary>Gets the master level as text.</summary>
     public string MasterLevelText => ProgramFields.FormatMasterLevel(ProgramFields.MasterLevelFromDb(MasterLevel));
 
     /// <summary>Gets or sets the master mix in percent.</summary>
-    [ObservableProperty]
     public partial int MasterMix { get; set; }
 
     /// <summary>Gets or sets the knob value.</summary>
-    [ObservableProperty]
     public partial int KnobValue { get; set; }
 
     /// <summary>Gets or sets the knob minimum.</summary>
-    [ObservableProperty]
     public partial int KnobMinimum { get; set; }
 
     /// <summary>Gets or sets the knob maximum.</summary>
-    [ObservableProperty]
     public partial int KnobMaximum { get; set; }
 
     /// <summary>Gets or sets the knob name (9 characters).</summary>
-    [ObservableProperty]
-    public partial string KnobName { get; set; } = "";
+    public partial string KnobName { get; set; }
 
     private void ApplyFields()
     {

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Commands;
 
 using BB84.MPX1.Core.Dumps;
 
@@ -14,8 +14,8 @@ public sealed class PanelButtonViewModel
     {
         Button = button ?? throw new ArgumentNullException(nameof(button));
         ArgumentNullException.ThrowIfNull(owner);
-        ClickCommand = new AsyncRelayCommand(() => owner.ClickAsync(button), () => owner.IsAttached);
-        HoldCommand = new AsyncRelayCommand(() => owner.HoldAsync(button), () => owner.IsAttached);
+        ClickCommand = new AsyncActionCommand(_ => owner.ClickAsync(button), () => owner.IsAttached);
+        HoldCommand = new AsyncActionCommand(_ => owner.HoldAsync(button), () => owner.IsAttached);
     }
 
     /// <summary>Gets the button.</summary>
@@ -25,8 +25,8 @@ public sealed class PanelButtonViewModel
     public string Name => Button.Name;
 
     /// <summary>Gets the click command.</summary>
-    public IAsyncRelayCommand ClickCommand { get; }
+    public IAsyncActionCommand ClickCommand { get; }
 
     /// <summary>Gets the hold command.</summary>
-    public IAsyncRelayCommand HoldCommand { get; }
+    public IAsyncActionCommand HoldCommand { get; }
 }

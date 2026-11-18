@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
@@ -23,12 +22,11 @@ public sealed partial class LibrarianViewModel
     public IEnumerable<CategoryFlagViewModel> SourceFlags => Flags.Where(f => f.IsSource);
 
     /// <summary>Gets or sets a value indicating whether sort flags were changed but not written.</summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(WriteFlagsCommand))]
+    [NotifyCanExecuteChanged(nameof(WriteFlagsCommand))]
     public partial bool HasUnsavedFlags { get; set; }
 
     /// <summary>Writes the edited sort flags of all slots (Database Dump).</summary>
-    [RelayCommand(CanExecute = nameof(CanWriteFlags))]
+    [ActionCommand(CanExecute = nameof(CanWriteFlags))]
     public Task WriteFlagsAsync() => RunAsync("Writing sort flags…", async (librarian, _, ct) =>
     {
         await librarian.WriteDatabaseAsync([.. Slots.Select(s => s.Categories)], ct);

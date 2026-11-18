@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Files;
@@ -10,7 +10,7 @@ namespace BB84.MPX1.App.ViewModels.Editing;
 public sealed partial class ProgramEditorViewModel
 {
     /// <summary>Opens the first program of a <c>.syx</c> file (UI-010).</summary>
-    [RelayCommand]
+    [ActionCommand]
     public async Task OpenFileAsync()
     {
         try
@@ -36,7 +36,7 @@ public sealed partial class ProgramEditorViewModel
     }
 
     /// <summary>Saves the program as a <c>.syx</c> file (PRG-006).</summary>
-    [RelayCommand]
+    [ActionCommand]
     public async Task SaveFileAsync()
     {
         ushort number = _sourceNumber is ushort n && n != Request.ActiveProgram ? n : (ushort)StoreTarget;

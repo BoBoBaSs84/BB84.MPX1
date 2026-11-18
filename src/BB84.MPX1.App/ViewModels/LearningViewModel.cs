@@ -1,35 +1,37 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.Midi.Learning;
 
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>Learning status (UI-002): progress, cache status and the learn prompt.</summary>
-public sealed partial class LearningViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class LearningViewModel
 {
+    /// <summary>Initializes a new instance of the <see cref="LearningViewModel"/> class.</summary>
+    public LearningViewModel()
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _status = "Not connected";
+    }
+
     /// <summary>Gets or sets a value indicating whether learning runs.</summary>
-    [ObservableProperty]
     public partial bool IsLearning { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a database is available.</summary>
-    [ObservableProperty]
     public partial bool IsLearned { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the connected firmware still has to be learned.</summary>
-    [ObservableProperty]
     public partial bool NeedsLearning { get; set; }
 
     /// <summary>Gets or sets the progress in percent.</summary>
-    [ObservableProperty]
     public partial double Percent { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the progress cannot be expressed in percent (tree walk).</summary>
-    [ObservableProperty]
     public partial bool IsIndeterminate { get; set; }
 
     /// <summary>Gets or sets the progress or cache text.</summary>
-    [ObservableProperty]
-    public partial string Status { get; set; } = "Not connected";
+    public partial string Status { get; set; }
 
     /// <summary>Shows a progress report.</summary>
     /// <param name="progress">The report.</param>

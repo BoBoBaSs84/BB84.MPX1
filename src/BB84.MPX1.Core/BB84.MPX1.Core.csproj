@@ -4,4 +4,11 @@
     <InternalsVisibleTo Include="BB84.MPX1.Core.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="BB84.SourceGenerators">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
@@ -11,7 +11,8 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>The parameters directly below one control level, read from the device.</summary>
-public sealed partial class ParameterPageViewModel : ObservableObject, IDisposable
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class ParameterPageViewModel : IDisposable
 {
     private readonly CancellationTokenSource _cancel = new();
     private bool _closed;
@@ -32,15 +33,13 @@ public sealed partial class ParameterPageViewModel : ObservableObject, IDisposab
     public ObservableCollection<ParameterViewModel> Parameters { get; } = [];
 
     /// <summary>Gets or sets a notice shown above the editors, or <see langword="null"/>.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    [AlsoNotify(nameof(HasNotice))]
     public partial string? Notice { get; set; }
 
     /// <summary>Gets a value indicating whether <see cref="Notice"/> is set.</summary>
     public bool HasNotice => Notice is not null;
 
     /// <summary>Gets or sets a value indicating whether values are being read.</summary>
-    [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
     /// <summary>Gets the task that reads all values, for tests.</summary>

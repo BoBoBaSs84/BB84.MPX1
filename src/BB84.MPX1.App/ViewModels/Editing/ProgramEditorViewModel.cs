@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -17,7 +16,9 @@ namespace BB84.MPX1.App.ViewModels.Editing;
 /// "Store" writes a slot (presets need confirmation, PRG-004). Offline, files are edited with the last learned
 /// database.
 /// </summary>
-public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramDocument, IDeviceTab, IDisposable
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+[GenerateDisposable]
+public sealed partial class ProgramEditorViewModel : IProgramDocument, IDeviceTab
 {
     private readonly IUserDialogs _dialogs;
     private readonly TimeProvider _time;
@@ -26,6 +27,7 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
     private int _maxMixingBlocks = 2;
     private ProgramData? _original;
     private ushort? _sourceNumber;
+    [DisposeResource]
     private CoalescingWriter<ProgramData>? _audition;
     private bool _applying;
 
@@ -34,6 +36,13 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
     /// <param name="time">Time source for audition throttling.</param>
     public ProgramEditorViewModel(IUserDialogs dialogs, TimeProvider time)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _source = "New program";
+        _isAuditionEnabled = true;
+        _status = "";
+        _storeTarget = ProgramSlots.FirstUser;
+        _name = "";
+        _knobName = "";
         _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         _time = time ?? throw new ArgumentNullException(nameof(time));
         Program = ProgramFields.NewProgram();
@@ -61,44 +70,36 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
     public ObservableCollection<ModulatorBlockViewModel> Modulators { get; } = [];
 
     /// <summary>Gets or sets where the program came from.</summary>
-    [ObservableProperty]
-    public partial string Source { get; set; } = "New program";
+    public partial string Source { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the program differs from what was loaded.</summary>
-    [ObservableProperty]
     public partial bool IsDirty { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a device is connected.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanAudition))]
-    [NotifyCanExecuteChangedFor(nameof(ReceiveActiveCommand), nameof(StoreCommand), nameof(SendToActiveCommand))]
+    [AlsoNotify(nameof(CanAudition))]
+    [NotifyCanExecuteChanged(nameof(ReceiveActiveCommand), nameof(StoreCommand), nameof(SendToActiveCommand))]
     public partial bool IsConnected { get; set; }
 
     /// <summary>Gets or sets a value indicating whether changes are sent to the active program as you edit.</summary>
-    [ObservableProperty]
-    public partial bool IsAuditionEnabled { get; set; } = true;
+    public partial bool IsAuditionEnabled { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a transfer runs.</summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ReceiveActiveCommand), nameof(StoreCommand), nameof(SendToActiveCommand))]
+    [NotifyCanExecuteChanged(nameof(ReceiveActiveCommand), nameof(StoreCommand), nameof(SendToActiveCommand))]
     public partial bool IsBusy { get; set; }
 
     /// <summary>Gets or sets the status line.</summary>
-    [ObservableProperty]
-    public partial string Status { get; set; } = "";
+    public partial string Status { get; set; }
 
     /// <summary>Gets or sets a warning about the routing of a loaded program, or <see langword="null"/>.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRoutingWarning))]
+    [AlsoNotify(nameof(HasRoutingWarning))]
     public partial string? RoutingWarning { get; set; }
 
     /// <summary>Gets a value indicating whether <see cref="RoutingWarning"/> is set.</summary>
     public bool HasRoutingWarning => RoutingWarning is not null;
 
     /// <summary>Gets or sets the slot used by <see cref="StoreCommand"/>, as a program number 0–249.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StoreTargetDisplay))]
-    public partial int StoreTarget { get; set; } = ProgramSlots.FirstUser;
+    [AlsoNotify(nameof(StoreTargetDisplay))]
+    public partial int StoreTarget { get; set; }
 
     /// <summary>Gets or sets <see cref="StoreTarget"/> as the front-panel number 1–250 shown in the store box.</summary>
     public int StoreTargetDisplay
@@ -144,13 +145,13 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
         ArgumentNullException.ThrowIfNull(change);
         Program = change(Program);
         IsDirty = true;
-        OnPropertyChanged(nameof(RoutingMap));
+        RaisePropertyChanged(nameof(RoutingMap));
         if (IsAuditionEnabled && _audition is not null)
             _audition.Submit(Program);
     }
 
     /// <summary>Starts a blank program.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void New()
     {
         Load(ProgramFields.NewProgram(), "New program", null);
@@ -158,7 +159,7 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
     }
 
     /// <summary>Discards changes since loading.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void Revert()
     {
         if (_original is { } original)
@@ -169,9 +170,6 @@ public sealed partial class ProgramEditorViewModel : ObservableObject, IProgramD
             Status = "Changes discarded.";
         }
     }
-
-    /// <inheritdoc/>
-    public void Dispose() => _audition?.Dispose();
 
     private void Edit(Func<ProgramData, ProgramData> change)
     {

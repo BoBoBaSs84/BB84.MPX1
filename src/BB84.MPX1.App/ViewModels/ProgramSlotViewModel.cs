@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Midi.Library;
@@ -6,7 +6,8 @@ using BB84.MPX1.Midi.Library;
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>One of the 250 librarian slots (UI-005).</summary>
-public sealed partial class ProgramSlotViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class ProgramSlotViewModel
 {
     /// <summary>Initializes a new instance of the <see cref="ProgramSlotViewModel"/> class.</summary>
     /// <param name="summary">The slot contents.</param>
@@ -34,16 +35,13 @@ public sealed partial class ProgramSlotViewModel : ObservableObject
     public string Kind => IsPreset ? "Preset" : "User";
 
     /// <summary>Gets or sets the program name.</summary>
-    [ObservableProperty]
     public partial string Name { get; set; }
 
     /// <summary>Gets or sets the loaded algorithms, as names.</summary>
-    [ObservableProperty]
     public partial string Algorithms { get; set; }
 
     /// <summary>Gets or sets the sort flags.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CategoriesText))]
+    [AlsoNotify(nameof(CategoriesText))]
     public partial ProgramCategories Categories { get; set; }
 
     /// <summary>Gets the sort flags as text.</summary>

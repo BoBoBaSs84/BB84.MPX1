@@ -189,7 +189,7 @@ public sealed partial class Mpx1Simulator
         ushort[] slots = new ushort[EffectParameterList.SlotCount];
         FixtureController? controller = _fixture.Controllers.FirstOrDefault(c => c.EffectType == (byte)effect);
         if (controller is null)
-            return new EffectParameterList(effect.ToString(), 0, [.. slots]);
+            return new EffectParameterList(effect.ToStringFast(), 0, [.. slots]);
 
         int used = Math.Min(controller.Types.Count, slots.Length);
         for (int i = 0; i < used; i++)

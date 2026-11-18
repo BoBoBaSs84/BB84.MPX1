@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
@@ -11,7 +11,8 @@ using BB84.MPX1.Core.Values;
 namespace BB84.MPX1.App.ViewModels.Editing;
 
 /// <summary>One of the six effect blocks: on/off, algorithm and its parameters (UI-006).</summary>
-public sealed partial class EffectBlockViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class EffectBlockViewModel
 {
     private readonly IProgramDocument _document;
     private bool _applying;
@@ -45,16 +46,13 @@ public sealed partial class EffectBlockViewModel : ObservableObject
     public ObservableCollection<BlockParameterViewModel> Parameters { get; } = [];
 
     /// <summary>Gets or sets the selected algorithm.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedAlgorithm { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the effect is active (not bypassed).</summary>
-    [ObservableProperty]
     public partial bool IsOn { get; set; }
 
     /// <summary>Gets or sets a notice, for example when the algorithm's parameter list is unknown.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    [AlsoNotify(nameof(HasNotice))]
     public partial string? Notice { get; set; }
 
     /// <summary>Gets a value indicating whether <see cref="Notice"/> is set.</summary>

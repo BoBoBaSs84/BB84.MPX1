@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -8,6 +8,7 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>On/off editor for parameters whose range is exactly 0–1.</summary>
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
 public sealed partial class ToggleParameterViewModel : ParameterViewModel
 {
     private readonly CoalescingWriter<int> _writer;
@@ -21,7 +22,6 @@ public sealed partial class ToggleParameterViewModel : ParameterViewModel
         => _writer = CreateWriter<int>((v, ct) => Context.Editor.WriteValueAsync(Node.Address, v, null, ct));
 
     /// <summary>Gets or sets a value indicating whether the parameter is on.</summary>
-    [ObservableProperty]
     public partial bool IsOn { get; set; }
 
     /// <inheritdoc/>

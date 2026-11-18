@@ -1,10 +1,13 @@
 using System.Collections.Immutable;
 
+using BB84.SourceGenerators.Attributes;
+
 using BB84.MPX1.Core.Dumps;
 
 namespace BB84.MPX1.Core.Database;
 
 /// <summary>System and front-panel dumps (DMP-001 to DMP-010).</summary>
+[GenerateEnumeratorExtensions]
 public enum SystemDumpKind
 {
     /// <summary>Setup dumps: five stored setups and the active one (DMP-004).</summary>
@@ -67,7 +70,7 @@ public static class SystemDumps
         SystemDumpKind.CurrentChoices => "Current Choices",
         SystemDumpKind.SoftRow => "Soft Row",
         SystemDumpKind.AllSetups => "All setups (active and stored)",
-        _ => kind.ToString(),
+        _ => kind.ToStringFast(),
     };
 
     /// <summary>Returns the documented field layout of a dump kind, or <see langword="null"/> for front-panel dumps.</summary>
@@ -145,7 +148,7 @@ public static class SystemDumps
     {
         ArgumentNullException.ThrowIfNull(database);
         ArgumentNullException.ThrowIfNull(node);
-        foreach (SystemDumpKind kind in Enum.GetValues<SystemDumpKind>())
+        foreach (SystemDumpKind kind in SystemDumpKindExtensions.GetValuesFast())
         {
             if (Find(database, kind).Contains(node))
                 return kind;

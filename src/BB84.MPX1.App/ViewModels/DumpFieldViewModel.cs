@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Dumps;
@@ -7,7 +7,8 @@ using BB84.MPX1.Core.Programs;
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>One field of a dump section, with the editor its kind needs (UI-008).</summary>
-public sealed partial class DumpFieldViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class DumpFieldViewModel
 {
     private readonly DumpSectionViewModel _section;
     private bool _applying;
@@ -17,6 +18,9 @@ public sealed partial class DumpFieldViewModel : ObservableObject
     /// <param name="field">The field.</param>
     public DumpFieldViewModel(DumpSectionViewModel section, DumpField field)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _text = "";
+        _display = "";
         _section = section ?? throw new ArgumentNullException(nameof(section));
         Field = field ?? throw new ArgumentNullException(nameof(field));
         Options = field.Kind switch
@@ -55,27 +59,21 @@ public sealed partial class DumpFieldViewModel : ObservableObject
     public bool IsReadOnly => Field.IsReadOnly;
 
     /// <summary>Gets or sets the selected option.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? Selected { get; set; }
 
     /// <summary>Gets or sets the number.</summary>
-    [ObservableProperty]
     public partial int Number { get; set; }
 
     /// <summary>Gets or sets the switch state.</summary>
-    [ObservableProperty]
     public partial bool IsOn { get; set; }
 
     /// <summary>Gets or sets the text.</summary>
-    [ObservableProperty]
-    public partial string Text { get; set; } = "";
+    public partial string Text { get; set; }
 
     /// <summary>Gets or sets the formatted value (read-only fields) or a warning about an illegal stored value.</summary>
-    [ObservableProperty]
-    public partial string Display { get; set; } = "";
+    public partial string Display { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the stored value is illegal (DMP-011).</summary>
-    [ObservableProperty]
     public partial bool IsInvalid { get; set; }
 
     /// <summary>Shows the field's value from the section data.</summary>

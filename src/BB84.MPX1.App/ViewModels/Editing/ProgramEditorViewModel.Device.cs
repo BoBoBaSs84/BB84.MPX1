@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Programs;
@@ -59,7 +59,7 @@ public sealed partial class ProgramEditorViewModel
     });
 
     /// <summary>Opens the active program of the device.</summary>
-    [RelayCommand(CanExecute = nameof(CanTransfer))]
+    [ActionCommand(CanExecute = nameof(CanTransfer))]
     public Task ReceiveActiveAsync() => RunAsync("Reading the active program…", async (librarian, ct) =>
     {
         ProgramData program = await librarian.ReceiveAsync(Request.ActiveProgram, ct);
@@ -68,7 +68,7 @@ public sealed partial class ProgramEditorViewModel
     });
 
     /// <summary>Stores the program in <see cref="StoreTarget"/>; presets need confirmation (PRG-004).</summary>
-    [RelayCommand(CanExecute = nameof(CanTransfer))]
+    [ActionCommand(CanExecute = nameof(CanTransfer))]
     public Task StoreAsync() => RunAsync("Storing…", async (librarian, ct) =>
     {
         ushort target = (ushort)Math.Clamp(StoreTarget, 0, ProgramSlots.Count - 1);
@@ -88,7 +88,7 @@ public sealed partial class ProgramEditorViewModel
     });
 
     /// <summary>Sends the program to the active program without storing it.</summary>
-    [RelayCommand(CanExecute = nameof(CanTransfer))]
+    [ActionCommand(CanExecute = nameof(CanTransfer))]
     public Task SendToActiveAsync() => RunAsync("Sending…", async (librarian, ct) =>
     {
         await librarian.SendToActiveAsync(Program, ct);

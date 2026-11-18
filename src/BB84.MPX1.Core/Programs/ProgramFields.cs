@@ -119,8 +119,8 @@ public static class ProgramFields
     /// <param name="categories">The flags.</param>
     public static string DescribeCategories(ProgramCategories categories)
     {
-        IEnumerable<string> effects = Enum.GetValues<EffectCategories>().Where(f => f != EffectCategories.None && categories.Effects.HasFlag(f)).Select(f => f.ToString());
-        IEnumerable<string> sources = Enum.GetValues<SourceCategories>().Where(f => f != SourceCategories.None && categories.Sources.HasFlag(f)).Select(f => f.ToString());
+        IEnumerable<string> effects = EffectCategoriesExtensions.GetValuesFast().Where(f => f != EffectCategories.None && categories.Effects.HasFlag(f)).Select(f => f.ToStringFast());
+        IEnumerable<string> sources = SourceCategoriesExtensions.GetValuesFast().Where(f => f != SourceCategories.None && categories.Sources.HasFlag(f)).Select(f => f.ToStringFast());
         return string.Join(", ", effects.Concat(sources));
     }
 }

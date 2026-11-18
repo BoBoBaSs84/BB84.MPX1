@@ -224,7 +224,7 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 
 ### 3.13 Patterns (PAT)
 
-- **PAT-001**: MVVM in the app using CommunityToolkit.Mvvm source generators. Avalonia compiled bindings (`x:CompileBindings="True"`) everywhere.
+- **PAT-001**: MVVM in the app using BB84.SourceGenerators source generators (notification properties and action commands). Avalonia compiled bindings (`x:CompileBindings="True"`) everywhere.
 - **PAT-002**: Ports-and-adapters: Core (domain) ← Midi (session, ports) ← adapters (WinMM, Simulator, Replay) ← App.
 - **PAT-003**: Message classes as a closed set of types handled by an exhaustive `switch` expression.
 
@@ -423,7 +423,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
 
 - **PLT-001**: .NET 10 SDK — Native AOT, `LibraryImport`, `System.Text.Json` source generation.
 - **PLT-002**: Avalonia UI with compiled bindings — cross-platform AOT-compatible UI.
-- **PLT-003**: CommunityToolkit.Mvvm — source-generated MVVM, AOT-compatible.
+- **PLT-003**: BB84.SourceGenerators — compile-time generated MVVM, assembly information, enum and dispose code; no runtime dependency, AOT-compatible.
 - **PLT-004**: MSTest on Microsoft.Testing.Platform.
 - **PLT-005**: Windows `winmm.dll` — MIDI I/O for the 1.0 transport.
 

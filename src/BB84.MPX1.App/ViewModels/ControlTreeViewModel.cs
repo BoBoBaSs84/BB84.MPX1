@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -11,7 +11,8 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>The control-tree browser and the page for the selected level (UI-003).</summary>
-public sealed partial class ControlTreeViewModel : ObservableObject, IDeviceTab
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class ControlTreeViewModel : IDeviceTab
 {
     private Mpx1Session? _session;
     private ParameterEditor? _editor;
@@ -21,11 +22,9 @@ public sealed partial class ControlTreeViewModel : ObservableObject, IDeviceTab
     public ObservableCollection<ControlNodeViewModel> Roots { get; } = [];
 
     /// <summary>Gets or sets the selected control level.</summary>
-    [ObservableProperty]
     public partial ControlNodeViewModel? SelectedNode { get; set; }
 
     /// <summary>Gets or sets the page of the selected level.</summary>
-    [ObservableProperty]
     public partial ParameterPageViewModel? Page { get; set; }
 
     /// <summary>Shows the tree of a learned database.</summary>

@@ -1,5 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels.Parameters;
@@ -11,7 +10,8 @@ using BB84.MPX1.Core.Protocol;
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>One System tab section: a dump kind, its instances (for example the six setups) and its fields.</summary>
-public sealed partial class DumpSectionViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class DumpSectionViewModel
 {
     private readonly SystemViewModel _owner;
     private readonly ControlTreeNode? _allSetups;
@@ -84,15 +84,12 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     public byte[] Data => _data;
 
     /// <summary>Gets or sets the selected instance.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedInstance { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the data was read.</summary>
-    [ObservableProperty]
     public partial bool IsLoaded { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the data differs from the unit.</summary>
-    [ObservableProperty]
     public partial bool IsDirty { get; set; }
 
     /// <summary>Gets the selected node.</summary>
@@ -101,7 +98,7 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     private int Setup => SelectedInstance?.Value ?? 0;
 
     /// <summary>Reads the selected instance from the unit.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public Task ReadAsync() => _owner.RunAsync($"Reading {Title}…", async (dumps, ct) =>
     {
         if (Node is not { } node)
@@ -112,7 +109,7 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     });
 
     /// <summary>Writes the selected instance to the unit; setups need confirmation (CON-007).</summary>
-    [RelayCommand]
+    [ActionCommand]
     public Task WriteAsync() => _owner.RunAsync($"Writing {Title}…", async (dumps, ct) =>
     {
         if (Node is not { } node || !IsLoaded || !IsWritable)
@@ -137,7 +134,7 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     });
 
     /// <summary>Saves the selected instance as a <c>.syx</c> file.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public async Task ExportAsync()
     {
         if (Node is not { } node || !IsLoaded)
@@ -152,7 +149,7 @@ public sealed partial class DumpSectionViewModel : ObservableObject
     }
 
     /// <summary>Loads a dump of this kind from a <c>.syx</c> file into the editor (not written until Write).</summary>
-    [RelayCommand]
+    [ActionCommand]
     public async Task ImportAsync()
     {
         PickedFile? file = await _owner.Dialogs.OpenSyxAsync($"Import {Title}");

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Programs;
@@ -7,7 +7,8 @@ using BB84.MPX1.Core.Protocol;
 namespace BB84.MPX1.App.ViewModels.Editing;
 
 /// <summary>One position of the audio routing table, with only the routings the rules allow (UI-006).</summary>
-public sealed partial class RoutingRowViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class RoutingRowViewModel
 {
     private readonly Action<RoutingRowViewModel> _changed;
     private readonly bool _applying;
@@ -68,19 +69,15 @@ public sealed partial class RoutingRowViewModel : ObservableObject
     public IReadOnlyList<ChoiceItem> Modes { get; }
 
     /// <summary>Gets or sets the effect at this position.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedEffect { get; set; }
 
     /// <summary>Gets or sets the routing.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedMode { get; set; }
 
     /// <summary>Gets or sets the upper input connection.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedUpperInput { get; set; }
 
     /// <summary>Gets or sets the lower input connection.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedLowerInput { get; set; }
 
     /// <summary>Gets what the user changed last.</summary>

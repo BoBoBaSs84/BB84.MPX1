@@ -1,5 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -12,7 +11,8 @@ namespace BB84.MPX1.App.ViewModels;
 /// The Librarian tab (UI-005): 250-slot list, load to active, rename, sort flags, single-program <c>.syx</c>
 /// import/export and full backup/restore (PRG-001 to PRG-007).
 /// </summary>
-public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class LibrarianViewModel : IDeviceTab
 {
     private readonly IUserDialogs _dialogs;
     private readonly IUiDispatcher _dispatcher;
@@ -26,28 +26,29 @@ public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
     /// <param name="dispatcher">UI dispatcher.</param>
     public LibrarianViewModel(IUserDialogs dialogs, IUiDispatcher dispatcher)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _renameText = "";
+        _status = "Connect and learn a device to use the librarian.";
         _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        foreach (EffectCategories flag in Enum.GetValues<EffectCategories>().Where(f => f != EffectCategories.None))
-            Flags.Add(new CategoryFlagViewModel(flag.ToString(), (int)flag, isSource: false));
-        foreach (SourceCategories flag in Enum.GetValues<SourceCategories>().Where(f => f != SourceCategories.None))
-            Flags.Add(new CategoryFlagViewModel(flag.ToString(), (int)flag, isSource: true));
+        foreach (EffectCategories flag in EffectCategoriesExtensions.GetValuesFast().Where(f => f != EffectCategories.None))
+            Flags.Add(new CategoryFlagViewModel(flag.ToStringFast(), (int)flag, isSource: false));
+        foreach (SourceCategories flag in SourceCategoriesExtensions.GetValuesFast().Where(f => f != SourceCategories.None))
+            Flags.Add(new CategoryFlagViewModel(flag.ToStringFast(), (int)flag, isSource: true));
         foreach (CategoryFlagViewModel flag in Flags)
             flag.PropertyChanged += (_, _) => OnFlagChanged();
     }
 
     /// <summary>Gets or sets the selected slot.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(IsIdleWithSelection))]
-    [NotifyCanExecuteChangedFor(nameof(LoadToActiveCommand), nameof(RenameCommand), nameof(ExportCommand), nameof(ImportCommand), nameof(EditCommand))]
+    [AlsoNotify(nameof(HasSelection), nameof(IsIdleWithSelection))]
+    [NotifyCanExecuteChanged(nameof(LoadToActiveCommand), nameof(RenameCommand), nameof(ExportCommand), nameof(ImportCommand), nameof(EditCommand))]
     public partial ProgramSlotViewModel? SelectedSlot { get; set; }
 
     /// <summary>Gets a value indicating whether a slot is selected.</summary>
     public bool HasSelection => SelectedSlot is not null;
 
     /// <summary>Gets or sets the new name for <see cref="RenameCommand"/>.</summary>
-    [ObservableProperty]
-    public partial string RenameText { get; set; } = "";
+    public partial string RenameText { get; set; }
 
     /// <summary>Gets a value indicating whether commands can run.</summary>
     public bool IsIdle => CanRun();
@@ -56,30 +57,25 @@ public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
     public bool IsIdleWithSelection => CanRunOnSelection();
 
     /// <summary>Gets or sets a value indicating whether a device is attached.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsIdleWithSelection))]
-    [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(BackupCommand), nameof(RestoreCommand), nameof(WriteFlagsCommand),
+    [AlsoNotify(nameof(IsIdle), nameof(IsIdleWithSelection))]
+    [NotifyCanExecuteChanged(nameof(RefreshCommand), nameof(BackupCommand), nameof(RestoreCommand), nameof(WriteFlagsCommand),
         nameof(LoadToActiveCommand), nameof(RenameCommand), nameof(ExportCommand), nameof(ImportCommand), nameof(EditCommand))]
     public partial bool IsAttached { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a transfer runs.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsIdleWithSelection))]
-    [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(BackupCommand), nameof(RestoreCommand), nameof(WriteFlagsCommand),
+    [AlsoNotify(nameof(IsIdle), nameof(IsIdleWithSelection))]
+    [NotifyCanExecuteChanged(nameof(RefreshCommand), nameof(BackupCommand), nameof(RestoreCommand), nameof(WriteFlagsCommand),
         nameof(LoadToActiveCommand), nameof(RenameCommand), nameof(ExportCommand), nameof(ImportCommand), nameof(EditCommand))]
     public partial bool IsBusy { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the slot list was read.</summary>
-    [ObservableProperty]
     public partial bool IsLoaded { get; set; }
 
     /// <summary>Gets or sets the progress in percent.</summary>
-    [ObservableProperty]
     public partial double Progress { get; set; }
 
     /// <summary>Gets or sets the status line.</summary>
-    [ObservableProperty]
-    public partial string Status { get; set; } = "Connect and learn a device to use the librarian.";
+    public partial string Status { get; set; }
 
     /// <summary>Connects the tab to a learned device.</summary>
     /// <param name="librarian">The librarian.</param>
@@ -118,7 +114,7 @@ public sealed partial class LibrarianViewModel : ObservableObject, IDeviceTab
     public Task EnsureLoadedAsync() => IsAttached && !IsLoaded && !IsBusy ? RefreshAsync() : Task.CompletedTask;
 
     /// <summary>Cancels the running transfer.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void Cancel() => _cancel?.Cancel();
 
     private bool CanRun() => IsAttached && !IsBusy;

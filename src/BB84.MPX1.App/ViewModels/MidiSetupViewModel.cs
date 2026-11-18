@@ -1,13 +1,14 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>MIDI setup form: ports, device ID and session timing (UI-001).</summary>
-public sealed partial class MidiSetupViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class MidiSetupViewModel
 {
     private readonly IMidiPortCatalog _catalog;
     private bool _pairing;
@@ -15,7 +16,13 @@ public sealed partial class MidiSetupViewModel : ObservableObject
     /// <summary>Initializes a new instance of the <see cref="MidiSetupViewModel"/> class.</summary>
     /// <param name="catalog">The port catalog.</param>
     public MidiSetupViewModel(IMidiPortCatalog catalog)
-        => _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _requestTimeoutMs = 2000;
+        _retries = 2;
+        _readyTimeoutMs = 3000;
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    }
 
     /// <summary>Gets the input ports.</summary>
     public ObservableCollection<MidiPortChoice> Inputs { get; } = [];
@@ -24,34 +31,27 @@ public sealed partial class MidiSetupViewModel : ObservableObject
     public ObservableCollection<MidiPortChoice> Outputs { get; } = [];
 
     /// <summary>Gets or sets the input port.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Summary), nameof(IsComplete))]
+    [AlsoNotify(nameof(Summary), nameof(IsComplete))]
     public partial MidiPortChoice? SelectedInput { get; set; }
 
     /// <summary>Gets or sets the output port.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Summary), nameof(IsComplete))]
+    [AlsoNotify(nameof(Summary), nameof(IsComplete))]
     public partial MidiPortChoice? SelectedOutput { get; set; }
 
     /// <summary>Gets or sets the device ID, 0–127 (127 addresses all devices).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Summary))]
+    [AlsoNotify(nameof(Summary))]
     public partial int DeviceId { get; set; }
 
     /// <summary>Gets or sets the request timeout in milliseconds.</summary>
-    [ObservableProperty]
-    public partial int RequestTimeoutMs { get; set; } = 2000;
+    public partial int RequestTimeoutMs { get; set; }
 
     /// <summary>Gets or sets the retry count.</summary>
-    [ObservableProperty]
-    public partial int Retries { get; set; } = 2;
+    public partial int Retries { get; set; }
 
     /// <summary>Gets or sets the READY timeout in milliseconds.</summary>
-    [ObservableProperty]
-    public partial int ReadyTimeoutMs { get; set; } = 3000;
+    public partial int ReadyTimeoutMs { get; set; }
 
     /// <summary>Gets or sets the gap between outgoing frames in milliseconds.</summary>
-    [ObservableProperty]
     public partial int InterFrameGapMs { get; set; }
 
     /// <summary>Gets a value indicating whether both ports are chosen.</summary>

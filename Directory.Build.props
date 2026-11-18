@@ -16,18 +16,19 @@
   <!-- Build related properties -->
   <PropertyGroup Label="Build">
     <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
-    <TargetFramework>net10.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Deterministic>true</Deterministic>
-    <NeutralLanguage>en-US</NeutralLanguage>
     <AnalysisMode>recommended</AnalysisMode>
+    <Deterministic>True</Deterministic>
+    <EmitCompilerGeneratedFiles>True</EmitCompilerGeneratedFiles>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <Nullable>enable</Nullable>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <!-- Metadata related properties -->

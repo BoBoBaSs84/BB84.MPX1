@@ -6,6 +6,7 @@ using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
 using BB84.MPX1.Midi.Learning;
+using BB84.MPX1.Midi.Tests;
 
 namespace BB84.MPX1.App.Tests;
 
@@ -188,5 +189,25 @@ public sealed class ServiceTests
         {
             File.Delete(path);
         }
+    }
+
+    [TestMethod]
+    [Description("Spec 4.7, SEC-002: settings are replaced through a temporary file; unreadable files fall back to defaults")]
+    public void SettingsStore_SavesAtomicallyAndToleratesReadErrors()
+    {
+        string path = Path.Combine("settings", "settings.json");
+        InMemoryFileSystem fs = new();
+        SettingsStore store = new(path, fs.File, fs.Directory);
+        AppSettings saved = new() { DeviceId = 5 };
+
+        store.Save(saved);
+
+        Assert.AreSequenceEqual(new[] { "CreateDirectory settings", $"WriteAllText {path}.tmp", $"Move {path}.tmp {path}" }, fs.Calls);
+        Assert.AreEqual(saved, store.Load());
+
+        fs.ReadFailure = new IOException("locked");
+        Assert.AreEqual(new AppSettings(), store.Load());
+        fs.ReadFailure = new UnauthorizedAccessException();
+        Assert.AreEqual(new AppSettings(), store.Load());
     }
 }

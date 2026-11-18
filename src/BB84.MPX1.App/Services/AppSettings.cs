@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Midi;
+using BB84.MPX1.Midi.IO;
 
 namespace BB84.MPX1.App.Services;
 
@@ -59,8 +60,13 @@ internal sealed partial class AppSettingsJsonContext : JsonSerializerContext;
 
 /// <summary>Loads and saves <see cref="AppSettings"/> as JSON.</summary>
 /// <param name="path">The settings file.</param>
-public sealed class SettingsStore(string path)
+/// <param name="files">File access; defaults to the real file system.</param>
+/// <param name="directories">Directory access; defaults to the real file system.</param>
+public sealed class SettingsStore(string path, IFileProvider? files = null, IDirectoryProvider? directories = null)
 {
+    private readonly IFileProvider _files = files ?? new FileProvider();
+    private readonly IDirectoryProvider _directories = directories ?? new DirectoryProvider();
+
     /// <summary>Gets the settings file path.</summary>
     public string Path { get; } = path ?? throw new ArgumentNullException(nameof(path));
 
@@ -69,9 +75,9 @@ public sealed class SettingsStore(string path)
     {
         try
         {
-            if (!File.Exists(Path))
+            if (!_files.Exists(Path))
                 return new AppSettings();
-            return JsonSerializer.Deserialize(File.ReadAllText(Path), AppSettingsJsonContext.Default.AppSettings) ?? new AppSettings();
+            return JsonSerializer.Deserialize(_files.ReadAllText(Path),AppSettingsJsonContext.Default.AppSettings) ?? new AppSettings();
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -86,10 +92,10 @@ public sealed class SettingsStore(string path)
         ArgumentNullException.ThrowIfNull(settings);
         string? directory = System.IO.Path.GetDirectoryName(Path);
         if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
+            _directories.CreateDirectory(directory);
         string temp = Path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(settings, AppSettingsJsonContext.Default.AppSettings));
-        File.Move(temp, Path, overwrite: true);
+        _files.WriteAllText(temp, JsonSerializer.Serialize(settings, AppSettingsJsonContext.Default.AppSettings));
+        _files.Move(temp, Path, overwrite: true);
     }
 }
 

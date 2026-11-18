@@ -1,11 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- The abstraction generator emits the public FileProvider/DirectoryProvider members without XML comments.
+         Remove once BB84.SourceGenerators emits <inheritdoc/> on implementation members:
+         https://github.com/BoBoBaSs84/BB84.SourceGenerators/issues/255 -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\BB84.MPX1.Core\BB84.MPX1.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="BB84.MPX1.Midi.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BB84.SourceGenerators">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

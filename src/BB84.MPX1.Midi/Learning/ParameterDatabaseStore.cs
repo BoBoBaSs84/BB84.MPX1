@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 
 using BB84.MPX1.Core.Database;
+using BB84.MPX1.Midi.IO;
 
 namespace BB84.MPX1.Midi.Learning;
 
@@ -39,8 +40,13 @@ public sealed class InMemoryParameterDatabaseStore : IParameterDatabaseStore
 
 /// <summary>Stores each database as <c>&lt;directory&gt;/&lt;key&gt;.json</c>.</summary>
 /// <param name="directory">The cache directory; created on first save.</param>
-public sealed class FileParameterDatabaseStore(string directory) : IParameterDatabaseStore
+/// <param name="files">File access; defaults to the real file system.</param>
+/// <param name="directories">Directory access; defaults to the real file system.</param>
+public sealed class FileParameterDatabaseStore(string directory, IFileProvider? files = null, IDirectoryProvider? directories = null) : IParameterDatabaseStore
 {
+    private readonly IFileProvider _files = files ?? new FileProvider();
+    private readonly IDirectoryProvider _directories = directories ?? new DirectoryProvider();
+
     /// <summary>Gets the cache directory.</summary>
     public string Directory { get; } = directory ?? throw new ArgumentNullException(nameof(directory));
 
@@ -49,12 +55,12 @@ public sealed class FileParameterDatabaseStore(string directory) : IParameterDat
     {
         ArgumentNullException.ThrowIfNull(key);
         string path = PathFor(key);
-        if (!File.Exists(path))
+        if (!_files.Exists(path))
             return null;
 
         try
         {
-            ParameterDatabase database = ParameterDatabaseSerializer.Deserialize(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false));
+            ParameterDatabase database = ParameterDatabaseSerializer.Deserialize(await _files.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false));
             return database.Key == key ? database : null;
         }
         catch (JsonException)
@@ -68,11 +74,11 @@ public sealed class FileParameterDatabaseStore(string directory) : IParameterDat
     public async Task SaveAsync(ParameterDatabase database, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(database);
-        System.IO.Directory.CreateDirectory(Directory);
+        _directories.CreateDirectory(Directory);
         string path = PathFor(database.Key);
         string temp = path + ".tmp";
-        await File.WriteAllTextAsync(temp, ParameterDatabaseSerializer.Serialize(database), cancellationToken).ConfigureAwait(false);
-        File.Move(temp, path, overwrite: true);
+        await _files.WriteAllTextAsync(temp, ParameterDatabaseSerializer.Serialize(database), cancellationToken).ConfigureAwait(false);
+        _files.Move(temp, path, overwrite: true);
     }
 
     private string PathFor(DatabaseKey key) => Path.Combine(Directory, key.FileStem + ".json");

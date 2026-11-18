@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\BB84.MPX1.Midi.Tests\InMemoryFileSystem.cs" Link="InMemoryFileSystem.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\BB84.MPX1.App\BB84.MPX1.App.csproj" />
   </ItemGroup>
 

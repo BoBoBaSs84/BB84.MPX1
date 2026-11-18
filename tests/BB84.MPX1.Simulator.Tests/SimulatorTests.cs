@@ -1,3 +1,5 @@
+using BB84.MPX1.Core.Database;
+using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
@@ -22,27 +24,27 @@ public sealed class SimulatorTests
 
     public TestContext TestContext { get; set; } = null!;
 
-    private static async Task<(Mpx1Session Session, Mpx1Simulator Simulator)> CreateAsync(SimulatorOptions? options = null, Mpx1SessionOptions? sessionOptions = null)
+    private async Task<(Mpx1Session Session, Mpx1Simulator Simulator)> CreateAsync(string firmware = Firmware.V110, SimulatorOptions? options = null, Mpx1SessionOptions? sessionOptions = null)
     {
-        Mpx1Simulator simulator = new(options: options);
-        await simulator.OpenAsync(Mpx1Simulator.Port.Id, Mpx1Simulator.Port.Id);
+        Mpx1Simulator simulator = await Firmware.SimulatorAsync(firmware, options, TestContext.CancellationToken);
         Mpx1Session session = new(simulator, Device, sessionOptions ?? FastOptions);
         session.Start();
         return (session, simulator);
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SIM-001, PRO-010: System Configuration from the fixture")]
-    public async Task SystemConfiguration_FromFixture()
+    public async Task SystemConfiguration_FromFixture(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
             DeviceVersion version = await session.DetectVersionAsync(TestContext.CancellationToken);
 
-            Assert.AreEqual("V1.10", version.ToString());
-            Assert.AreEqual((ushort)0x01C0, version.Configuration.ParameterTypeCount);
+            Assert.AreEqual(firmware, version.ToString());
+            Assert.AreEqual((await Firmware.FixtureAsync(firmware, TestContext.CancellationToken)).ParameterTypeCount, version.Configuration.ParameterTypeCount);
             Assert.IsNotNull(version.Identity);
         }
     }
@@ -86,10 +88,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("AC-012, SIM-004: two dropped responses, third attempt succeeds")]
-    public async Task DroppedResponses_AreRetried()
+    public async Task DroppedResponses_AreRetried(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
@@ -102,10 +105,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SIM-004: a corrupted response is reported and the request retried")]
-    public async Task CorruptedResponse_IsRetried()
+    public async Task CorruptedResponse_IsRetried(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         int rejected = 0;
         session.FrameTraffic += (_, e) =>
         {
@@ -125,11 +129,12 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("AC-011, SIM-003: dump writes wait for READY")]
-    public async Task ProgramDumpWrites_WaitForReady()
+    public async Task ProgramDumpWrites_WaitForReady(string firmware)
     {
         TimeSpan busy = TimeSpan.FromMilliseconds(250);
-        var (session, simulator) = await CreateAsync(new SimulatorOptions { BusyDuration = busy });
+        var (session, simulator) = await CreateAsync(firmware, new SimulatorOptions { BusyDuration = busy });
         await using (session)
         await using (simulator)
         {
@@ -145,10 +150,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SES-005, SIM-004: suppressed READY times out")]
-    public async Task SuppressedReady_TimesOut()
+    public async Task SuppressedReady_TimesOut(string firmware)
     {
-        var (session, simulator) = await CreateAsync(sessionOptions: FastOptions with { ReadyTimeout = TimeSpan.FromMilliseconds(200) });
+        var (session, simulator) = await CreateAsync(firmware, sessionOptions: FastOptions with { ReadyTimeout = TimeSpan.FromMilliseconds(200) });
         await using (session)
         await using (simulator)
         {
@@ -159,10 +165,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-001: read a program and the active program")]
-    public async Task ProgramDump_Read()
+    public async Task ProgramDump_Read(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
@@ -232,10 +239,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SIM-005, Appendix D bug 3: writing an unloaded algorithm's parameter crashes the unit")]
-    public async Task Bug3_UnloadedAlgorithmWriteCrashes()
+    public async Task Bug3_UnloadedAlgorithmWriteCrashes(string firmware)
     {
-        var (session, simulator) = await CreateAsync(sessionOptions: FastOptions with { Retries = 0 });
+        var (session, simulator) = await CreateAsync(firmware, sessionOptions: FastOptions with { Retries = 0 });
         await using (session)
         await using (simulator)
         {
@@ -248,10 +256,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PAR-001: writing a loaded algorithm's parameter is stored")]
-    public async Task ParameterWrite_IsStored()
+    public async Task ParameterWrite_IsStored(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
@@ -265,10 +274,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SIM-001: frames for other device IDs are ignored; 127 is broadcast")]
-    public async Task DeviceIdFiltering()
+    public async Task DeviceIdFiltering(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
@@ -298,10 +308,11 @@ public sealed class SimulatorTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("SIM-002: state exported from a simulator loads into a new one")]
-    public async Task ToFixture_PreservesWrites()
+    public async Task ToFixture_PreservesWrites(string firmware)
     {
-        var (session, simulator) = await CreateAsync();
+        var (session, simulator) = await CreateAsync(firmware);
         await using (session)
         await using (simulator)
         {
@@ -310,5 +321,64 @@ public sealed class SimulatorTests
             await using Mpx1Simulator copy = new(SimulatorFixtureSerializer.Deserialize(SimulatorFixtureSerializer.Serialize(simulator.ToFixture())));
             Assert.AreEqual("Saved       ", copy.GetProgram(220).Name);
         }
+    }
+
+    [TestMethod]
+    [Description("DMP-004, SIM-002: on V1.00 the all-setups dump keeps the active setup, which has no address of its own, and every stored-setup address reads setup 1 (spec section 9, E13)")]
+    public async Task V100_AllSetups_KeepActiveSetup_StoredReadAsSetup1()
+    {
+        var (session, simulator) = await CreateAsync(Firmware.V100);
+        await using (session)
+        await using (simulator)
+        {
+            FixtureSpecials specials = (await Firmware.FixtureAsync(Firmware.V100, TestContext.CancellationToken)).Specials!;
+            Assert.IsNull(specials.Setups!.Active);
+            ControlAddress allSetups = ControlAddress.From((await Firmware.FixtureAsync(Firmware.V100, TestContext.CancellationToken)).Nodes.First(n => n.Type == specials.AllSetups).Address);
+            DumpField name = DumpLayouts.SetupV100.Fields.Single(f => f.Name == "Setup name");
+            byte[] data = [.. Enumerable.Range(0, SystemDumps.SetupCount).SelectMany(i => name.WriteText(DefaultFixture.InitialSetup(i, DumpLayouts.SetupV100), $"Written {i}"))];
+
+            await session.SendAsync(new ParameterData(Device, data, allSetups), TestContext.CancellationToken);
+            ParameterData readBack = await session.RequestAsync<ParameterData>(Request.ParameterData(Device, allSetups), TestContext.CancellationToken);
+            ParameterData third = await session.RequestAsync<ParameterData>(Request.ParameterData(Device, ControlAddress.From(specials.Setups.Stored[2])), TestContext.CancellationToken);
+
+            Assert.AreSequenceEqual(data, readBack.Data.ToArray(), "The active setup survives the write.");
+            Assert.AreEqual("Written 1", name.ReadText(third.Data.Span).TrimEnd(), "Stored setup 3 reads as stored setup 1.");
+            Assert.AreEqual("Written 3", name.ReadText(simulator.GetValue(ControlAddress.From(specials.Setups.Stored[2]))!).TrimEnd(), "The write still reached setup 3.");
+        }
+    }
+
+    [TestMethod]
+    [Description("SIM-002: without declared special cases the simulator only stores values; V1.10 type numbers have no hidden meaning")]
+    public async Task NoSpecials_StoresPlainValues()
+    {
+        SimulatorFixture fixture = DefaultFixture.CreateV110() with { Specials = null };
+        await using Mpx1Simulator simulator = new(fixture, new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) });
+        await simulator.OpenAsync(Mpx1Simulator.Port.Id, Mpx1Simulator.Port.Id, TestContext.CancellationToken);
+        await using Mpx1Session session = new(simulator, Device, FastOptions);
+        session.Start();
+        ControlAddress softRow = new(1, 14, 2);
+        ControlAddress button = new(1, 8, 0);
+        byte[] row = new byte[DumpLayouts.SoftRow.Size];
+
+        await session.SendAsync(new ParameterData(Device, row, softRow), TestContext.CancellationToken);
+        await session.SendAsync(new ParameterData(Device, new byte[] { 0x2F }, button), TestContext.CancellationToken);
+        await session.PingAsync(TestContext.CancellationToken);
+
+        Assert.AreSequenceEqual(row, simulator.GetValue(softRow));
+        Assert.AreSequenceEqual(DefaultFixture.CreateProgram(0).SoftValues.ToArray(), simulator.ActiveProgram.SoftValues.ToArray(), "The active program is untouched.");
+        Assert.IsNull(simulator.LastButtonCode);
+        Assert.AreSequenceEqual(new byte[] { 0x2F }, simulator.GetValue(button));
+    }
+
+    [TestMethod]
+    [Description("SIM-002: a schema 1 fixture, which predates declared special cases, gets the V1.10 ones")]
+    public void Fixture_Schema1_GetsV110Specials()
+    {
+        SimulatorFixture old = DefaultFixture.CreateV110() with { SchemaVersion = 1, Specials = null };
+
+        SimulatorFixture loaded = SimulatorFixtureSerializer.Deserialize(SimulatorFixtureSerializer.Serialize(old));
+
+        Assert.AreEqual(DefaultFixture.V110Specials, loaded.Specials);
+        Assert.IsNull(SimulatorFixtureSerializer.Deserialize(SimulatorFixtureSerializer.Serialize(old with { SchemaVersion = 2 })).Specials);
     }
 }

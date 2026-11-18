@@ -19,20 +19,12 @@ namespace BB84.MPX1.Simulator.Tests;
 public sealed class HardwareReplayTests
 {
     private static readonly DeviceId Device = new(3);
-    private static ParameterDatabase? _database;
 
     public TestContext TestContext { get; set; } = null!;
 
-    private static string DataPath(string name) => Path.Combine(AppContext.BaseDirectory, "data", "hardware", "v100", name);
-
-    // The learn recording was made with one retry; replies are released at once, so a short timeout only shortens the
-    // two unanswered attempts (Pitch algorithm 10 has no Report Effect Parameters answer on V1.00).
-    private static readonly Mpx1SessionOptions LearnOptions = new() { RequestTimeout = TimeSpan.FromMilliseconds(100), Retries = 1 };
-
     private static async Task<(ReplayMidiTransport Replay, Mpx1Session Session)> OpenAsync(string recording, CancellationToken cancellationToken, Mpx1SessionOptions? options = null)
     {
-        using StreamReader reader = new(DataPath(recording));
-        ReplayMidiTransport replay = new(RecordedFrame.ReadAll(reader));
+        ReplayMidiTransport replay = new(Firmware.ReadRecording(recording));
         await replay.OpenAsync(ReplayMidiTransport.Port.Id, ReplayMidiTransport.Port.Id, cancellationToken);
         Mpx1Session session = new(replay, Device, options);
         session.Start();
@@ -40,15 +32,7 @@ public sealed class HardwareReplayTests
     }
 
     // The V1.00 database, learned once from the recording.
-    private async Task<ParameterDatabase> DatabaseAsync()
-    {
-        if (_database is not null)
-            return _database;
-        var (replay, session) = await OpenAsync("learn.jsonl", TestContext.CancellationToken, LearnOptions);
-        await using (replay)
-        await using (session)
-            return _database = await new ParameterLearner(session).LoadOrLearnAsync(forceRelearn: true, cancellationToken: TestContext.CancellationToken);
-    }
+    private Task<ParameterDatabase> DatabaseAsync() => Firmware.RecordedDatabaseAsync(TestContext.CancellationToken);
 
     // The hardware tests load the cached database first, which sends one System Configuration request.
     private async Task<ParameterDatabase> LoadCachedAsync(Mpx1Session session)

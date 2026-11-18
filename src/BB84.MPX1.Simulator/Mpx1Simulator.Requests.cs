@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
@@ -154,17 +155,34 @@ public sealed partial class Mpx1Simulator
 
     private byte[] ReadValue(ControlAddress address, ushort type)
     {
-        if (type == DefaultFixture.Types.PatchesDump)
+        if (type == _specials.Patches)
             return _active.GetPatchesDump();
-        if (type == DefaultFixture.Types.SoftRowDump)
+        if (type == _specials.SoftRow)
             return _active.GetSoftRowDump();
-        if (type == DefaultFixture.Types.AllSetupsDump)
-            return [.. AllSetupsOrder.SelectMany(a => _values.TryGetValue(a, out byte[]? setup) ? setup : new byte[DumpLayouts.Setup.Size])];
+        if (type == _specials.AllSetups && _setupSize > 0)
+            return ReadAllSetups(address);
+        // A V1.00 unit answers every stored-setup address with stored setup 1 (spec section 9, E13).
+        if (_specials.Setups is { StoredReadAsFirst: true } && _storedSetups.Contains(address)
+            && _values.TryGetValue(_storedSetups[0], out byte[]? first))
+            return first;
         if (_values.TryGetValue(address, out byte[]? value))
             return value;
         ParameterDescription description = Describe(type);
         int size = description.Size + (description.OptionType is ushort option ? Describe(option).Size : 0);
         return new byte[size];
+    }
+
+    // The stored dump (zeros until written), overlaid with the current single setups.
+    private byte[] ReadAllSetups(ControlAddress address)
+    {
+        int size = SystemDumps.SetupCount * _setupSize;
+        byte[] data = _values.TryGetValue(address, out byte[]? stored) && stored.Length == size ? [.. stored] : new byte[size];
+        for (int i = 0; i < _setupOrder.Length && i < SystemDumps.SetupCount; i++)
+        {
+            if (_setupOrder[i] is { } setup && _values.TryGetValue(setup, out byte[]? single) && single.Length == _setupSize)
+                single.CopyTo(data, i * _setupSize);
+        }
+        return data;
     }
 
     private string FormatValue(ControlAddress address, ushort type)

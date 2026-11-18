@@ -181,7 +181,7 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 ### 3.8 Simulator (SIM)
 
 - **SIM-001**: The simulator shall implement `IMidiTransport` and respond to every request class in PRO-009.
-- **SIM-002**: The simulator's model (parameter descriptions, tree, programs) shall be loadable from a JSON fixture. The initial fixture is hand-built from the spec's examples and grows when real captures become available.
+- **SIM-002**: The simulator's model (parameter descriptions, tree, programs) shall be loadable from a JSON fixture. The fixture shall declare the parameters that need behavior beyond storing a value (Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single setups), because their type numbers differ between V1.00 and V1.10. The initial fixture is hand-built from the spec's examples; a full-tree fixture can be built from a learned database, such as the one learned from a hardware capture.
 - **SIM-003**: The simulator shall emit BUSY then READY after receiving a Program Dump or a dump write, with a configurable delay.
 - **SIM-004**: The simulator shall support fault injection: dropped responses, delayed responses, corrupt nibbles, missing READY.
 - **SIM-005**: The simulator shall reproduce the three Appendix D bugs so that LRN-006 to LRN-008 can be tested.

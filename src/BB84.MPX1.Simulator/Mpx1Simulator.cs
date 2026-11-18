@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
+using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Dumps;
 using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
@@ -31,6 +32,13 @@ public sealed partial class Mpx1Simulator : IMidiTransport
     private Channel<MidiInput> _inbox = CreateInbox();
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _pump;
+    private readonly FixtureSpecials _specials;
+    private readonly ControlAddress? _displayAddress;
+    private readonly ControlAddress? _ledsAddress;
+    // Single-setup addresses in all-setups order (active first); null where the firmware has no address.
+    private readonly ControlAddress?[] _setupOrder;
+    private readonly ControlAddress[] _storedSetups;
+    private readonly int _setupSize;
     private ProgramData _active;
     private ProgramCategories[] _database;
 
@@ -58,6 +66,14 @@ public sealed partial class Mpx1Simulator : IMidiTransport
             _programs[i] = DefaultFixture.CreateProgram(i);
         foreach (FixtureProgram program in _fixture.Programs)
             _programs[program.Number] = ProgramData.FromBytes(Convert.FromHexString(program.Hex));
+
+        _specials = _fixture.Specials ?? new FixtureSpecials();
+        _displayAddress = FirstAddressOf(_specials.Display);
+        _ledsAddress = FirstAddressOf(_specials.Leds);
+        FixtureSetups? setups = _specials.Setups;
+        _storedSetups = setups is null ? [] : [.. setups.Stored.Select(ControlAddress.From)];
+        _setupOrder = setups is null ? [] : [setups.Active is { } activeSetup ? ControlAddress.From(activeSetup) : null, .. _storedSetups.Select(a => (ControlAddress?)a)];
+        _setupSize = _specials.AllSetups is ushort allSetups ? Describe(allSetups).Size / SystemDumps.SetupCount : 0;
 
         _active = _programs[_fixture.ActiveProgram];
         _database = [.. _programs.Select(p => p.Categories)];
@@ -255,9 +271,8 @@ public sealed partial class Mpx1Simulator : IMidiTransport
         => address.Depth == 4 && address[0] == 0 && address[1] < ProgramData.EffectBlockCount
             && _active.Algorithms[address[1]] != address[2];
 
-    // Single-setup addresses in all-setups order: the active setup (A:1 B:13 C:5) first, then stored setups 1-5.
-    private static readonly ControlAddress[] AllSetupsOrder =
-        [new(1, 13, 5), new(1, 13, 0), new(1, 13, 1), new(1, 13, 2), new(1, 13, 3), new(1, 13, 4)];
+    private ControlAddress? FirstAddressOf(ushort? type)
+        => type is null ? null : _fixture.Nodes.FirstOrDefault(n => n.Type == type) is { } node ? ControlAddress.From(node.Address) : null;
 
     private void WriteParameter(ParameterData data)
     {
@@ -270,26 +285,35 @@ public sealed partial class Mpx1Simulator : IMidiTransport
             return;
         }
 
-        switch (type)
+        // Dumps of the active program edit the running program itself (DMP-009, DMP-010).
+        if (type == _specials.Patches && data.Data.Length == DumpLayouts.Patches.Size)
         {
-            // Dumps of the active program edit the running program itself (DMP-009, DMP-010).
-            case DefaultFixture.Types.PatchesDump when data.Data.Length == DumpLayouts.Patches.Size:
-                _active = _active.WithPatchesDump(data.Data.Span);
-                break;
-            case DefaultFixture.Types.SoftRowDump when data.Data.Length == DumpLayouts.SoftRow.Size:
-                _active = _active.WithSoftRowDump(data.Data.Span);
-                break;
-            case DefaultFixture.Types.PanelButton when data.Data.Length >= 1:
-                PressButton(data.Data.Span[0]);
-                return;
-            // The all-setups dump writes the six single setups, active first (DMP-004).
-            case DefaultFixture.Types.AllSetupsDump when data.Data.Length == AllSetupsOrder.Length * DumpLayouts.Setup.Size:
-                for (int i = 0; i < AllSetupsOrder.Length; i++)
-                    _values[AllSetupsOrder[i]] = data.Data.Slice(i * DumpLayouts.Setup.Size, DumpLayouts.Setup.Size).ToArray();
-                break;
-            default:
+            _active = _active.WithPatchesDump(data.Data.Span);
+        }
+        else if (type == _specials.SoftRow && data.Data.Length == DumpLayouts.SoftRow.Size)
+        {
+            _active = _active.WithSoftRowDump(data.Data.Span);
+        }
+        else if (type == _specials.PanelButton && data.Data.Length >= 1)
+        {
+            PressButton(data.Data.Span[0]);
+            return;
+        }
+        else if (type == _specials.AllSetups && _setupSize > 0 && data.Data.Length == SystemDumps.SetupCount * _setupSize)
+        {
+            // The all-setups dump writes the single setups, active first (DMP-004). The dump itself is kept only when
+            // a setup has no address of its own (the active setup on V1.00).
+            if (_setupOrder.Length < SystemDumps.SetupCount || _setupOrder.Contains(null))
                 _values[data.Address] = data.Data.ToArray();
-                break;
+            for (int i = 0; i < _setupOrder.Length && i < SystemDumps.SetupCount; i++)
+            {
+                if (_setupOrder[i] is { } setup)
+                    _values[setup] = data.Data.Slice(i * _setupSize, _setupSize).ToArray();
+            }
+        }
+        else
+        {
+            _values[data.Address] = data.Data.ToArray();
         }
         if (data.Data.Length > 2)
             SignalBusy();

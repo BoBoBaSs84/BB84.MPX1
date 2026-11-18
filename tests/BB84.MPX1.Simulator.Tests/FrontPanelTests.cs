@@ -26,10 +26,9 @@ public sealed class FrontPanelTests
         }
     }
 
-    private async Task<Rig> CreateAsync()
+    private async Task<Rig> CreateAsync(string firmware)
     {
-        Mpx1Simulator simulator = new(options: new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) });
-        await simulator.OpenAsync(Mpx1Simulator.Port.Id, Mpx1Simulator.Port.Id, TestContext.CancellationToken);
+        Mpx1Simulator simulator = await Firmware.SimulatorAsync(firmware, new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) }, TestContext.CancellationToken);
         Mpx1Session session = new(simulator, Device, new Mpx1SessionOptions { RequestTimeout = TimeSpan.FromMilliseconds(500), BusyGracePeriod = TimeSpan.FromMilliseconds(50) });
         ConcurrentQueue<FrameEventArgs> sent = new();
         session.FrameTraffic += (_, e) =>
@@ -38,7 +37,7 @@ public sealed class FrontPanelTests
                 sent.Enqueue(e);
         };
         session.Start();
-        ParameterDatabase database = await new ParameterLearner(session).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
+        ParameterDatabase database = await Firmware.LoadOrLearnAsync(session, TestContext.CancellationToken);
         DumpService dumps = new(session, database);
         return new Rig(simulator, session, dumps, new FrontPanelController(session, dumps), sent);
     }
@@ -47,10 +46,11 @@ public sealed class FrontPanelTests
         => [.. rig.Sent.Select(e => e.Message).OfType<ParameterData>().Select(d => d.Data.Span[0])];
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PAR-007: a click sends PRESS then RELEASE; the RELEASE frame matches the document's example")]
-    public async Task Click_SendsPressThenRelease()
+    public async Task Click_SendsPressThenRelease(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         rig.Sent.Clear();
 
         await rig.Panel.ClickAsync(PanelButtons.Find("Program"), TestContext.CancellationToken);
@@ -63,10 +63,11 @@ public sealed class FrontPanelTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PAR-007: hold is HOLD then RELEASE; Left + Right uses its own codes, never two PRESS messages")]
-    public async Task HoldAndCombination_UseDedicatedCodes()
+    public async Task HoldAndCombination_UseDedicatedCodes(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         rig.Sent.Clear();
 
         await rig.Panel.HoldAsync(PanelButtons.Find("Edit"), TestContext.CancellationToken);
@@ -74,17 +75,18 @@ public sealed class FrontPanelTests
         await rig.Panel.TurnAsync(-2, TestContext.CancellationToken);
 
         Assert.AreSequenceEqual(new byte[] { 0x1D, 0x33, 0x15, 0x41, 0x43, 0x43 }, ButtonCodes(rig));
-        Assert.IsTrue(rig.Panel.HasV110Codes);
+        Assert.AreEqual(firmware == Firmware.V110, rig.Panel.HasV110Codes);
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("UI-007, DMP-001, DMP-002: the mirror reads display and LEDs; a press changes them on the unit")]
-    public async Task Snapshot_ReflectsButtonPresses()
+    public async Task Snapshot_ReflectsButtonPresses(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
 
         PanelSnapshot before = await rig.Panel.ReadAsync(TestContext.CancellationToken);
-        Assert.AreEqual("  MPX 1  V1.10  ", DisplayText.Lines(before.Display).Top);
+        Assert.AreEqual($"  MPX 1  {firmware}  ", DisplayText.Lines(before.Display).Top);
         Assert.IsNotNull(before.Leds);
         Assert.IsTrue(before.Leds.IsOn(PanelLed.Program));
         Assert.AreEqual("001", before.Leds.Digits3);
@@ -100,22 +102,24 @@ public sealed class FrontPanelTests
         Assert.IsTrue(CustomCharacters.IsSet(characters!, 7, 0, 0), "Fixture character 7 is a full bar.");
 
         await rig.Panel.WriteDisplayAsync("Hello", "from the editor", TestContext.CancellationToken);
-        Assert.AreEqual("from the editor ", DisplayText.Lines(rig.Simulator.GetValue(new ControlAddress(1, 8, 1))!).Bottom);
+        ControlAddress display = rig.Dumps.Nodes(SystemDumpKind.Display).Single().Address;
+        Assert.AreEqual("from the editor ", DisplayText.Lines(rig.Simulator.GetValue(display)!).Bottom);
     }
 
     [TestMethod]
-    [Description("DMP-004, LRN-005: setups are found by name and size; the 542-byte bug-1 dump is not a setup")]
-    public async Task Setups_AreFoundAndWritable()
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
+    [Description("DMP-004, LRN-005: setups are found by name and size; the 542-byte bug-1 dump is not a setup; V1.00 reads every stored setup as setup 1 (E13)")]
+    public async Task Setups_AreFoundAndWritable(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
 
         IReadOnlyList<ControlTreeNode> setups = rig.Dumps.Nodes(SystemDumpKind.Setup);
-        Assert.HasCount(6, setups);
-        Assert.IsTrue(setups.All(n => n.Type == DefaultFixture.Types.SetupDump));
+        Assert.HasCount(firmware == Firmware.V110 ? 6 : 5, setups, "V1.00 has no single active-setup address.");
+        Assert.IsTrue(setups.All(n => n.Type == setups[0].Type));
 
         byte[] data = await rig.Dumps.ReadAsync(setups[1], TestContext.CancellationToken);
-        DumpLayout layout = DumpLayouts.Setup;
-        Assert.AreEqual("Setup 2", layout.Fields.Single(f => f.Name == "Setup name").ReadText(data).TrimEnd());
+        DumpLayout layout = SystemDumps.Layout(SystemDumpKind.Setup, rig.Dumps.Database.ValueSize(setups[0].Type))!;
+        Assert.AreEqual(firmware == Firmware.V110 ? "Setup 2" : "Setup 1", layout.Fields.Single(f => f.Name == "Setup name").ReadText(data).TrimEnd());
         Assert.IsTrue(layout.IsValid(data));
 
         data = layout.Fields.Single(f => f.Name == "LCD contrast").Write(data, 12);
@@ -128,10 +132,11 @@ public sealed class FrontPanelTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("DMP-001: LED writes must keep the scan bits")]
-    public async Task LedWrite_RequiresScanBits()
+    public async Task LedWrite_RequiresScanBits(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ControlTreeNode leds = rig.Dumps.Nodes(SystemDumpKind.Leds).Single();
 
         await Assert.ThrowsExactlyAsync<ArgumentException>(() => rig.Dumps.WriteAsync(SystemDumpKind.Leds, leds, new byte[LedState.Size], TestContext.CancellationToken));
@@ -140,10 +145,11 @@ public sealed class FrontPanelTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("DMP-008, DMP-009, DMP-010: active-program dumps read and edit the running program")]
-    public async Task ActiveProgramDumps_EditRunningProgram()
+    public async Task ActiveProgramDumps_EditRunningProgram(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ControlTreeNode patches = rig.Dumps.Nodes(SystemDumpKind.Patches).Single();
         ControlTreeNode soft = rig.Dumps.Nodes(SystemDumpKind.SoftRow).Single();
         Assert.HasCount(1, rig.Dumps.Nodes(SystemDumpKind.CurrentChoices));
@@ -162,10 +168,11 @@ public sealed class FrontPanelTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("LRN-005, DMP-011: a learned dump node maps back to its dump kind by name; other nodes map to none")]
-    public async Task KindOf_MapsDumpNodes()
+    public async Task KindOf_MapsDumpNodes(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ParameterDatabase database = rig.Dumps.Database;
 
         foreach (SystemDumpKind kind in Enum.GetValues<SystemDumpKind>())

@@ -191,13 +191,13 @@ M9 is complete except for its exit criteria that need the maintainer: pushing th
 
 - The 11 `Hardware` tests pass: inquiry, firmware, ARE_YOU_THERE, learn (448 descriptions, 2,653 nodes, 95 s), program read, empty program, full backup, combined setup dump, program write/read-back/restore, and system dump write-back.
 - Recordings of learn, backup, program write, system dump write-back, firmware detection and an empty program are in `tests/data/hardware/v100` and replayed by `HardwareReplayTests`.
+- Full-tree V1.00 simulator fixture (done after M8, issue #24): the simulator's special cases are declared by the fixture, and `FixtureBuilder` builds the V1.00 fixture from the learn recording. The simulator test suites run against V1.10 and V1.00.
 - Spec corrections E10–E13 and new edge cases are in section 9: the Appendix D bug 2 address, Global Patch/Bypass "None" values, 43-byte V1.00 setups, the setup dump order and the broken single-setup reads.
 - Fixes found on hardware: dead-end detection by echo, skipping empty user programs, BUSY timing over USB interfaces, V1.00 dump names and sizes, all setups (active included) in backups and the System tab.
 - Timing (R5): replies take 17–46 ms, up to 405 ms for a Program Dump and 630 ms for the Database Dump, mostly MIDI wire time. The default request timeout is now 2000 ms.
 
 **Not done (moved out of M8)**
 
-- Full-tree simulator fixture for V1.00: the simulator's special cases (Patches, Soft Row, Panel Button, all setups) are keyed to V1.10 type numbers, which mean other dumps on V1.00. They must become fixture-driven before a V1.00 fixture works. Until then, the replay tests cover V1.00.
 - Black-box comparison with `MPX1EDIT.EXE` under otvdm/winevdm (optional; needs the maintainer).
 - Restoring a full backup on hardware: program and system dump writes were verified one by one, not as a 250-program restore.
 

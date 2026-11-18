@@ -27,7 +27,7 @@ public sealed class LibrarianTests
 
     public TestContext TestContext { get; set; } = null!;
 
-    private sealed record Rig(Mpx1Simulator Simulator, Mpx1Session Session, ProgramLibrarian Librarian, ConcurrentQueue<Mpx1Message> Sent) : IAsyncDisposable
+    private sealed record Rig(Mpx1Simulator Simulator, Mpx1Session Session, ParameterDatabase Database, ProgramLibrarian Librarian, ConcurrentQueue<Mpx1Message> Sent) : IAsyncDisposable
     {
         public async ValueTask DisposeAsync()
         {
@@ -36,10 +36,9 @@ public sealed class LibrarianTests
         }
     }
 
-    private async Task<Rig> CreateAsync()
+    private async Task<Rig> CreateAsync(string firmware)
     {
-        Mpx1Simulator simulator = new(options: new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) });
-        await simulator.OpenAsync(Mpx1Simulator.Port.Id, Mpx1Simulator.Port.Id, TestContext.CancellationToken);
+        Mpx1Simulator simulator = await Firmware.SimulatorAsync(firmware, new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) }, TestContext.CancellationToken);
         Mpx1Session session = new(simulator, Device, FastOptions);
         ConcurrentQueue<Mpx1Message> sent = new();
         session.FrameTraffic += (_, e) =>
@@ -48,18 +47,19 @@ public sealed class LibrarianTests
                 sent.Enqueue(e.Message);
         };
         session.Start();
-        ParameterDatabase database = await new ParameterLearner(session).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
-        return new Rig(simulator, session, new ProgramLibrarian(session, database), sent);
+        ParameterDatabase database = await Firmware.LoadOrLearnAsync(session, TestContext.CancellationToken);
+        return new Rig(simulator, session, database, new ProgramLibrarian(session, database), sent);
     }
 
     private static string Snapshot(Mpx1Simulator simulator)
         => SimulatorFixtureSerializer.Serialize(simulator.ToFixture()) + string.Join(",", simulator.Database);
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-007: the slot list comes from Program Information and the Database Dump")]
-    public async Task List_ReturnsAllSlots()
+    public async Task List_ReturnsAllSlots(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
 
         IReadOnlyList<ProgramSummary> slots = await rig.Librarian.ListAsync(cancellationToken: TestContext.CancellationToken);
 
@@ -73,10 +73,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-001, PRG-004: user registers are stored freely; presets only after confirmation")]
-    public async Task Store_RequiresConfirmationForPresets()
+    public async Task Store_RequiresConfirmationForPresets(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ProgramData program = await rig.Librarian.ReceiveAsync(7, TestContext.CancellationToken) with { Name = "Stored      " };
         rig.Sent.Clear();
 
@@ -92,10 +93,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-001: a stored program can be loaded into the active program")]
-    public async Task LoadToActive_CopiesProgram()
+    public async Task LoadToActive_CopiesProgram(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
 
         await rig.Librarian.LoadToActiveAsync(42, TestContext.CancellationToken);
 
@@ -103,10 +105,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("AC-017, PRG-005, SES-005: backup, change, restore leaves the simulator byte-identical")]
-    public async Task BackupRestore_RoundTrip()
+    public async Task BackupRestore_RoundTrip(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         Assert.AreSequenceEqual(SystemDumps.BackupKinds.Remove(SystemDumpKind.Setup), rig.Librarian.AvailableDumps().ToArray(), Microsoft.VisualStudio.TestTools.UnitTesting.SequenceOrder.InAnyOrder, "All setups replace the single setups.");
         string before = Snapshot(rig.Simulator);
 
@@ -119,7 +122,8 @@ public sealed class LibrarianTests
         await rig.Librarian.StoreAsync(0, changed, presetConfirmed: true, TestContext.CancellationToken);
         await rig.Librarian.StoreAsync(249, changed, presetConfirmed: false, TestContext.CancellationToken);
         await rig.Librarian.WriteDatabaseAsync([.. Enumerable.Repeat(default(ProgramCategories), 250)], TestContext.CancellationToken);
-        await rig.Session.SendAsync(new ParameterData(Device, new byte[20], new ControlAddress(1, 12, 0)), TestContext.CancellationToken);
+        ControlAddress globalPatches = SystemDumps.Find(rig.Database, SystemDumpKind.GlobalPatches).Single().Address;
+        await rig.Session.SendAsync(new ParameterData(Device, new byte[20], globalPatches), TestContext.CancellationToken);
         Assert.AreNotEqual(before, Snapshot(rig.Simulator));
 
         RestorePlan plan = rig.Librarian.Plan(SyxFile.Read(file));
@@ -135,10 +139,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-005: a backup leaves out cleared user registers, which the unit does not dump")]
-    public async Task Backup_SkipsClearedUserPrograms()
+    public async Task Backup_SkipsClearedUserPrograms(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ProgramData program = rig.Simulator.GetProgram(203);
         ProgramData cleared = program with { Algorithms = [ProgramData.ClearedAlgorithm, .. program.Algorithms[1..]] };
         await rig.Librarian.StoreAsync(203, cleared, presetConfirmed: false, TestContext.CancellationToken);
@@ -156,10 +161,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-001: reading an empty user register fails at once with a clear error instead of timing out")]
-    public async Task Receive_EmptySlot_ThrowsWithoutDumpRequest()
+    public async Task Receive_EmptySlot_ThrowsWithoutDumpRequest(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ProgramData program = rig.Simulator.GetProgram(230);
         await rig.Librarian.StoreAsync(230, program with { Algorithms = [ProgramData.ClearedAlgorithm, .. program.Algorithms[1..]] }, presetConfirmed: false, TestContext.CancellationToken);
         rig.Sent.Clear();
@@ -174,32 +180,40 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("DMP-004, PRG-005: the backup holds the all-setups dump (active setup first), restores the active setup, and skips single setups")]
-    public async Task Backup_AllSetups_RestoresActiveSetup()
+    public async Task Backup_AllSetups_RestoresActiveSetup(string firmware)
     {
-        await using Rig rig = await CreateAsync();
-        ControlAddress active = new(1, 13, 5);
-        byte[] original = rig.Simulator.GetValue(active)!;
+        await using Rig rig = await CreateAsync(firmware);
+        DumpService dumps = new(rig.Session, rig.Database);
+        ControlTreeNode allSetups = SystemDumps.Find(rig.Database, SystemDumpKind.AllSetups).Single();
+        IReadOnlyList<ControlTreeNode> stored = SystemDumps.Find(rig.Database, SystemDumpKind.Setup);
+        int setupSize = rig.Database.ValueSize(allSetups.Type) / SystemDumps.SetupCount;
+        DumpLayout layout = SystemDumps.Layout(SystemDumpKind.Setup, setupSize)!;
 
         IReadOnlyList<Mpx1Message> backup = await rig.Librarian.BackupAsync(SystemDumps.BackupKinds, cancellationToken: TestContext.CancellationToken);
 
-        ParameterData all = backup.OfType<ParameterData>().Single(d => d.Data.Length == 6 * DumpLayouts.Setup.Size);
-        Assert.AreSequenceEqual(original, SystemDumps.SplitSetups(all.Data)[0].ToArray(), "The active setup comes first.");
-        Assert.AreSequenceEqual(rig.Simulator.GetValue(new ControlAddress(1, 13, 0)), SystemDumps.SplitSetups(all.Data)[1].ToArray());
-        Assert.DoesNotContain(d => d.Data.Length == DumpLayouts.Setup.Size, backup.OfType<ParameterData>(), "No single setups.");
+        ParameterData all = backup.OfType<ParameterData>().Single(d => d.Data.Length == SystemDumps.SetupCount * setupSize);
+        byte[] original = SystemDumps.SplitSetups(all.Data)[0].ToArray();
+        Assert.AreEqual("Active", layout.Fields.Single(f => f.Name == "Setup name").ReadText(original).TrimEnd(), "The active setup comes first.");
+        Assert.AreSequenceEqual(rig.Simulator.GetValue(stored[0].Address), SystemDumps.SplitSetups(all.Data)[1].ToArray());
+        Assert.DoesNotContain(d => d.Data.Length == setupSize, backup.OfType<ParameterData>(), "No single setups.");
 
         // Change the active setup on the unit, then restore a file that also carries a stale single setup.
-        DumpField name = DumpLayouts.Setup.Fields.Single(f => f.Name == "Setup name");
-        await rig.Session.SendAsync(new ParameterData(Device, name.WriteText(original, "Changed"), active), TestContext.CancellationToken);
-        ParameterData stale = new(Device, name.WriteText(original, "Stale"), new ControlAddress(1, 13, 1));
+        DumpField name = layout.Fields.Single(f => f.Name == "Setup name");
+        byte[] changed = [.. all.Data.ToArray()];
+        name.WriteText(original, "Changed").CopyTo(changed, 0);
+        await rig.Session.SendAsync(new ParameterData(Device, changed, allSetups.Address), TestContext.CancellationToken);
+        Assert.AreEqual("Changed", name.ReadText(SystemDumps.SplitSetups(await dumps.ReadAsync(allSetups, TestContext.CancellationToken))[0].Span).TrimEnd());
+        ParameterData stale = new(Device, name.WriteText(rig.Simulator.GetValue(stored[1].Address)!, "Stale"), stored[1].Address);
         RestorePlan plan = rig.Librarian.Plan(SyxFile.Read(SyxFile.Write([.. backup, stale])));
         Assert.IsTrue(plan.Warnings.Any(w => w.Contains("Single setup", StringComparison.Ordinal)), string.Join("; ", plan.Warnings));
         Assert.DoesNotContain(stale, plan.Dumps);
 
         await rig.Librarian.RestoreAsync(plan, presetsConfirmed: true, cancellationToken: TestContext.CancellationToken);
 
-        Assert.AreSequenceEqual(original, rig.Simulator.GetValue(active));
-        Assert.AreNotEqual("Stale", name.ReadText(rig.Simulator.GetValue(new ControlAddress(1, 13, 1))!).TrimEnd());
+        Assert.AreSequenceEqual(original, SystemDumps.SplitSetups(await dumps.ReadAsync(allSetups, TestContext.CancellationToken))[0].ToArray());
+        Assert.AreNotEqual("Stale", name.ReadText(rig.Simulator.GetValue(stored[1].Address)!).TrimEnd());
         Assert.ThrowsExactly<ArgumentException>(() => DumpService.Validate(SystemDumpKind.AllSetups, new byte[6 * DumpLayouts.Setup.Size - 1]));
     }
 
@@ -218,16 +232,17 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-006, SEC-002: restore plans skip what does not belong to the connected firmware")]
-    public async Task Plan_SkipsForeignAndMismatchedData()
+    public async Task Plan_SkipsForeignAndMismatchedData(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ProgramData program = rig.Simulator.GetProgram(1);
         byte[] file = SyxFile.Write(
         [
             new ProgramDump(Device, Request.ActiveProgram, program),
             new ProgramDump(Device, 220, program),
-            new ParameterData(Device, new byte[5], new ControlAddress(1, 12, 0)),
+            new ParameterData(Device, new byte[5], SystemDumps.Find(rig.Database, SystemDumpKind.GlobalPatches).Single().Address),
             new ParameterData(Device, new byte[20], new ControlAddress(9, 9)),
         ]);
 
@@ -240,10 +255,11 @@ public sealed class LibrarianTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
     [Description("PRG-005, DMP-011: restore plans skip system dumps that hold illegal values")]
-    public async Task Plan_SkipsInvalidDumps()
+    public async Task Plan_SkipsInvalidDumps(string firmware)
     {
-        await using Rig rig = await CreateAsync();
+        await using Rig rig = await CreateAsync(firmware);
         ParameterData valid = (await rig.Librarian.BackupAsync([SystemDumpKind.BypassControllers], cancellationToken: TestContext.CancellationToken))
             .OfType<ParameterData>().Single();
         byte[] illegal = valid.Data.ToArray();

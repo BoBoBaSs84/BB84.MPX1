@@ -7,10 +7,7 @@ namespace BB84.MPX1.Simulator;
 // last button event, Bypass toggles its LED, the encoder counts the right-hand digits.
 public sealed partial class Mpx1Simulator
 {
-    private const string DisplayTitle = "  MPX 1  V1.10";
-
-    private static readonly ControlAddress DisplayAddress = new(1, 8, 1);
-    private static readonly ControlAddress LedsAddress = new(1, 8, 2);
+    private string DisplayTitle => $"  MPX 1  V{_fixture.MajorVersion}.{_fixture.MinorVersion:D2}";
 
     /// <summary>Gets the last Panel Button code received (PAR-007), or <see langword="null"/>.</summary>
     public byte? LastButtonCode { get; private set; }
@@ -18,14 +15,15 @@ public sealed partial class Mpx1Simulator
     private void PressButton(byte code)
     {
         LastButtonCode = code;
-        _values[DisplayAddress] = DisplayText.Encode(DisplayTitle, DescribeButton(code));
+        if (_displayAddress is { } display)
+            _values[display] = DisplayText.Encode(DisplayTitle, DescribeButton(code));
 
-        if (_values.TryGetValue(LedsAddress, out byte[]? leds) && leds.Length == LedState.Size)
+        if (_ledsAddress is { } ledsAddress && _values.TryGetValue(ledsAddress, out byte[]? leds) && leds.Length == LedState.Size)
         {
             LedState state = LedState.FromBytes(leds);
             if (code == PanelButtons.Find("Bypass").Release)
                 state = state.With(PanelLed.Bypass, !state.IsOn(PanelLed.Bypass));
-            _values[LedsAddress] = [.. state.Data];
+            _values[ledsAddress] = [.. state.Data];
         }
     }
 

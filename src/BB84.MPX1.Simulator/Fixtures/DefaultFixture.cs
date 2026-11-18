@@ -143,9 +143,10 @@ public static class DefaultFixture
 
     /// <summary>Builds a valid setup: channel 1, fast MIDI, device 0, no program +/- controllers, named "Setup n".</summary>
     /// <param name="number">Setup 0–5 (5 = active).</param>
-    public static byte[] InitialSetup(int number)
+    /// <param name="layout">The setup layout; <see cref="DumpLayouts.Setup"/> (V1.10) when <see langword="null"/>.</param>
+    public static byte[] InitialSetup(int number, DumpLayout? layout = null)
     {
-        DumpLayout layout = DumpLayouts.Setup;
+        layout ??= DumpLayouts.Setup;
         byte[] data = new byte[layout.Size];
         DumpField Field(string name) => layout.Fields.First(f => f.Name == name);
         data = Field("MIDI transmit speed").Write(data, MidiSpeed.Fast);
@@ -178,6 +179,25 @@ public static class DefaultFixture
         }
         return data;
     }
+
+    /// <summary>Initial Global Patches dump: sources unassigned (0xFF), destinations "none" (0).</summary>
+    public static string InitialGlobalPatchesHex => new string('F', 20) + new string('0', 20);
+
+    /// <summary>Returns an initial controller dump of <paramref name="size"/> bytes, all unassigned (0xFF).</summary>
+    /// <param name="size">The dump size: 7 (Bypass Controllers) or 163 (Remap Controllers).</param>
+    public static string UnassignedHex(int size) => new('F', size * 2);
+
+    /// <summary>Gets the special cases of the V1.10 fixture.</summary>
+    public static FixtureSpecials V110Specials { get; } = new()
+    {
+        PanelButton = Types.PanelButton,
+        Display = Types.DisplayDump,
+        Leds = Types.LedsDump,
+        Patches = Types.PatchesDump,
+        SoftRow = Types.SoftRowDump,
+        AllSetups = Types.AllSetupsDump,
+        Setups = new FixtureSetups([1, 13, 5], [.. Enumerable.Range(0, 5).Select(c => (IReadOnlyList<ushort>)[1, 13, (ushort)c])], StoredReadAsFirst: false),
+    };
 
     /// <summary>Real size of <see cref="Types.BrokenSizeDump"/>.</summary>
     public const int BrokenSizeDumpLength = 542;
@@ -328,9 +348,9 @@ public static class DefaultFixture
         values.Add(new([1, 14, 0], new string('0', DumpLayouts.CurrentChoices.Size * 2)));
 
         // Controller dumps start unassigned (0xFF); global patch destinations start at 0 ("none").
-        values.Add(new([1, 12, 0], new string('F', 20) + new string('0', 20)));
-        values.Add(new([1, 12, 1], new string('F', 7 * 2)));
-        values.Add(new([1, 12, 2], new string('F', 163 * 2)));
+        values.Add(new([1, 12, 0], InitialGlobalPatchesHex));
+        values.Add(new([1, 12, 1], UnassignedHex(7)));
+        values.Add(new([1, 12, 2], UnassignedHex(163)));
         for (ushort c = 0; c <= 2; c++)
             values.Add(new([1, 11, c, 0], Convert.ToHexString(Enumerable.Range(0, BrokenSizeDumpLength).Select(i => (byte)(i + c)).ToArray())));
 
@@ -353,6 +373,7 @@ public static class DefaultFixture
             Programs = programs,
             ActiveProgram = 0,
             Controllers = controllers,
+            Specials = V110Specials,
         };
     }
 

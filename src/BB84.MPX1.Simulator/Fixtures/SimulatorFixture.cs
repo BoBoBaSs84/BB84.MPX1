@@ -10,7 +10,7 @@ namespace BB84.MPX1.Simulator.Fixtures;
 public sealed record SimulatorFixture
 {
     /// <summary>Current fixture schema version.</summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     /// <summary>Gets the fixture schema version.</summary>
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
@@ -59,7 +59,49 @@ public sealed record SimulatorFixture
     /// Report Effect Parameters. Effect block algorithms are derived from the tree instead.
     /// </summary>
     public IReadOnlyList<FixtureController> Controllers { get; init; } = [];
+
+    /// <summary>
+    /// Gets the parameters the simulator models beyond storing values (Panel Button, front-panel and active-program
+    /// dumps, setups). <see langword="null"/> means none: every parameter only stores its value.
+    /// </summary>
+    public FixtureSpecials? Specials { get; init; }
 }
+
+/// <summary>
+/// The parameter types the simulator gives behavior, declared by the fixture because the numbers differ between
+/// firmware versions (most dump and system types are +1 in V1.10).
+/// </summary>
+public sealed record FixtureSpecials
+{
+    /// <summary>Gets the Panel Button type: a write presses a button (PAR-007).</summary>
+    public ushort? PanelButton { get; init; }
+
+    /// <summary>Gets the Display dump type, updated by button presses (DMP-002).</summary>
+    public ushort? Display { get; init; }
+
+    /// <summary>Gets the All LEDs dump type, updated by button presses (DMP-001).</summary>
+    public ushort? Leds { get; init; }
+
+    /// <summary>Gets the Patches dump type of the active program (DMP-009).</summary>
+    public ushort? Patches { get; init; }
+
+    /// <summary>Gets the Soft Row dump type of the active program (DMP-010).</summary>
+    public ushort? SoftRow { get; init; }
+
+    /// <summary>Gets the type of the dump that holds all six setups, active first (DMP-004).</summary>
+    public ushort? AllSetups { get; init; }
+
+    /// <summary>Gets the single-setup addresses behind the all-setups dump.</summary>
+    public FixtureSetups? Setups { get; init; }
+}
+
+/// <summary>The single-setup addresses in all-setups order (DMP-004).</summary>
+/// <param name="Active">The active setup's address, or <see langword="null"/> when the firmware has none (V1.00).</param>
+/// <param name="Stored">The addresses of stored setups 1–5.</param>
+/// <param name="StoredReadAsFirst">
+/// Whether every stored-setup address answers with stored setup 1, as a V1.00 unit does (spec section 9, E13).
+/// </param>
+public sealed record FixtureSetups(IReadOnlyList<ushort>? Active, IReadOnlyList<IReadOnlyList<ushort>> Stored, bool StoredReadAsFirst);
 
 /// <summary>The parameter list of one controller.</summary>
 /// <param name="EffectType">Controller type 6–16.</param>
@@ -114,7 +156,11 @@ public static class SimulatorFixtureSerializer
     /// <summary>Deserializes a fixture.</summary>
     /// <param name="json">The JSON text.</param>
     /// <exception cref="JsonException">The JSON is invalid.</exception>
+    /// <remarks>A schema 1 fixture without special cases gets the V1.10 ones, which schema 1 implied.</remarks>
     public static SimulatorFixture Deserialize(string json)
-        => JsonSerializer.Deserialize(json, SimulatorJsonContext.Default.SimulatorFixture)
+    {
+        SimulatorFixture fixture = JsonSerializer.Deserialize(json, SimulatorJsonContext.Default.SimulatorFixture)
             ?? throw new JsonException("The fixture is empty.");
+        return fixture is { SchemaVersion: 1, Specials: null } ? fixture with { Specials = DefaultFixture.V110Specials } : fixture;
+    }
 }

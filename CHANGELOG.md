@@ -7,9 +7,11 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 ### Added
 
 - Reference material: Markdown extractions of the Rev0 (V1.00) Lexicon documents (MIDI implementation, user guide, presets, quick reference) in `legacy/`. They stay out of release builds. The specification now logs the V1.00/V1.10 differences found in them (spec section 9, E14–E17).
+- Simulator: a V1.00 device model, built at test time from the V1.00 learn recording (`FixtureBuilder`). It has the full control tree of the real unit and answers like it: no single active-setup address, and every stored setup reads as setup 1 (E13). The Librarian, front-panel and simulator tests now run against both V1.10 and V1.00, including fault injection and BUSY/READY, which the replay tests cannot cover.
 
 ### Changed
 
+- Simulator fixtures (schema version 2) declare their special cases: Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single-setup addresses. The simulator no longer assumes V1.10 type numbers. Schema 1 fixtures load with the V1.10 special cases.
 - **Program numbers match the front panel**: the app now numbers programs 1–250 like the MPX 1 display and the user guide (presets 1–200, user programs 201–250), instead of the protocol's 0–249. This applies to the Librarian list, status messages, confirmations, export file names, error messages and the Program tab's store box. The MIDI monitor still shows the protocol numbers it decodes from the wire.
 - MVVM source generation moved from CommunityToolkit.Mvvm to BB84.SourceGenerators. The app version, enum names and dispose code are now also generated at compile time. `ControlAddress` keeps its hand-written equality, because the generated version boxes the level array and enumerates it through LINQ on every dictionary lookup.
 

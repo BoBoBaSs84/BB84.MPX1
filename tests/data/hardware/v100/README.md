@@ -16,4 +16,6 @@ MIDI traffic recorded from a real Lexicon MPX 1 by the `Hardware` tests (roadmap
 | `system-dumps-write-back.jsonl` | `SystemDumps_WriteBackUnchanged` | System dumps read, written back unchanged, read again |
 | `read-empty-slot-250.jsonl` | `ReadEmptySlot_ThrowsEmptyProgram` | Program Information of an empty user program |
 
+`learn.jsonl` also feeds the V1.00 simulator fixture: `FixtureBuilder` turns the database learned from it into a full-tree fixture, and the Librarian, front-panel and simulator tests run against it as well as against the V1.10 fixture.
+
 The recordings contain the owner's user programs and setups as stored on the unit that day.

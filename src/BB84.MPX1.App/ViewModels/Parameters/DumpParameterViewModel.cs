@@ -1,23 +1,31 @@
 using System.Text;
 
+using BB84.SourceGenerators.Attributes;
+
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Midi.Editing;
 
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>Read-only view of a dump or other parameter that has no editor yet.</summary>
-public sealed class DumpParameterViewModel(ControlTreeNode node, ParameterContext context, string readOnlyReason)
-    : ParameterViewModel(node, context, readOnlyReason)
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class DumpParameterViewModel : ParameterViewModel
 {
     private const int PreviewBytes = 48;
-    private string _preview = "";
+
+    /// <summary>Initializes a new instance of the <see cref="DumpParameterViewModel"/> class.</summary>
+    /// <param name="node">The tree node.</param>
+    /// <param name="context">The connection context.</param>
+    /// <param name="readOnlyReason">Why the parameter must not be written.</param>
+    public DumpParameterViewModel(ControlTreeNode node, ParameterContext context, string readOnlyReason)
+        : base(node, context, readOnlyReason)
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _preview = "";
+    }
 
     /// <summary>Gets a hex preview of the data.</summary>
-    public string Preview
-    {
-        get => _preview;
-        private set => SetProperty(ref _preview, value);
-    }
+    public partial string Preview { get; private set; }
 
     /// <inheritdoc/>
     protected override void Apply(ParameterReading reading)

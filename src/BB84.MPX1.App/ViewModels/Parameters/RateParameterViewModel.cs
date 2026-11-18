@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -10,6 +10,7 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>Rate editor with Hz and ratio modes (PAR-004, UI-004).</summary>
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
 public sealed partial class RateParameterViewModel : ParameterViewModel
 {
     private readonly CoalescingWriter<RateValue> _writer;
@@ -20,30 +21,31 @@ public sealed partial class RateParameterViewModel : ParameterViewModel
     /// <param name="readOnlyReason">Why the parameter is read-only, or <see langword="null"/>.</param>
     public RateParameterViewModel(ControlTreeNode node, ParameterContext context, string? readOnlyReason)
         : base(node, context, readOnlyReason)
-        => _writer = CreateWriter<RateValue>((v, ct) => Context.Editor.WriteAsync(Node.Address, Encode(v), ct));
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _numerator = 1;
+        _denominator = 1;
+        _writer = CreateWriter<RateValue>((v, ct) => Context.Editor.WriteAsync(Node.Address, Encode(v), ct));
+    }
 
     /// <summary>Gets the ratio term choices (1–24).</summary>
     public IReadOnlyList<int> RatioTerms { get; } = [.. Enumerable.Range(1, RateValue.MaxRatioTerm)];
 
     /// <summary>Gets or sets a value indicating whether the rate is a tempo ratio instead of a frequency.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsHertz))]
+    [AlsoNotify(nameof(IsHertz))]
     public partial bool IsRatio { get; set; }
 
     /// <summary>Gets a value indicating whether the rate is a frequency.</summary>
     public bool IsHertz => !IsRatio;
 
     /// <summary>Gets or sets the frequency in Hz (0.00–50.00).</summary>
-    [ObservableProperty]
     public partial double Hertz { get; set; }
 
     /// <summary>Gets or sets the ratio numerator (1–24).</summary>
-    [ObservableProperty]
-    public partial int Numerator { get; set; } = 1;
+    public partial int Numerator { get; set; }
 
     /// <summary>Gets or sets the ratio denominator (1–24).</summary>
-    [ObservableProperty]
-    public partial int Denominator { get; set; } = 1;
+    public partial int Denominator { get; set; }
 
     /// <summary>Gets the current value.</summary>
     public RateValue Current => IsRatio

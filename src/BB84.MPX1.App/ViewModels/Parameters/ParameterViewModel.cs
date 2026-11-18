@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -12,7 +12,8 @@ namespace BB84.MPX1.App.ViewModels.Parameters;
 /// Base of the parameter editors shown for the leaves of a control level (UI-003, UI-004). Reads the value and
 /// the device's display text; edits are sent live through a <see cref="CoalescingWriter{T}"/>.
 /// </summary>
-public abstract partial class ParameterViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public abstract partial class ParameterViewModel
 {
     private bool _applying;
 
@@ -22,6 +23,8 @@ public abstract partial class ParameterViewModel : ObservableObject
     /// <param name="readOnlyReason">Why the parameter must not be written, or <see langword="null"/>.</param>
     protected ParameterViewModel(ControlTreeNode node, ParameterContext context, string? readOnlyReason)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _displayText = "";
         Node = node ?? throw new ArgumentNullException(nameof(node));
         Context = context ?? throw new ArgumentNullException(nameof(context));
         ReadOnlyReason = readOnlyReason;
@@ -43,27 +46,23 @@ public abstract partial class ParameterViewModel : ObservableObject
     public bool IsEditable => ReadOnlyReason is null;
 
     /// <summary>Gets or sets a value indicating whether the page already explains why the parameter is read-only.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowReadOnlyReason))]
+    [AlsoNotify(nameof(ShowReadOnlyReason))]
     public partial bool IsReasonShownByPage { get; set; }
 
     /// <summary>Gets a value indicating whether the row shows its own read-only reason.</summary>
     public bool ShowReadOnlyReason => !IsEditable && !IsReasonShownByPage;
 
     /// <summary>Gets or sets the display text: the device's own formatting, or an offline preview while editing.</summary>
-    [ObservableProperty]
-    public partial string DisplayText { get; set; } = "";
+    public partial string DisplayText { get; set; }
 
     /// <summary>Gets or sets the last error, or <see langword="null"/>.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasError))]
+    [AlsoNotify(nameof(HasError))]
     public partial string? Error { get; set; }
 
     /// <summary>Gets a value indicating whether <see cref="Error"/> is set.</summary>
     public bool HasError => Error is not null;
 
     /// <summary>Gets or sets a value indicating whether the value was read from the device.</summary>
-    [ObservableProperty]
     public partial bool IsLoaded { get; set; }
 
     /// <summary>Gets the connection context.</summary>

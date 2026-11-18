@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -13,7 +13,8 @@ namespace BB84.MPX1.App.ViewModels;
 /// The System tab (UI-008): Setups (5 stored + active), Global Patches, Bypass and Remap Controllers, and the
 /// read-only Current Choices, each with typed fields, Read/Write and <c>.syx</c> import/export.
 /// </summary>
-public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class SystemViewModel : IDeviceTab
 {
     private static readonly SystemDumpKind[] Kinds =
     [
@@ -25,7 +26,12 @@ public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
 
     /// <summary>Initializes a new instance of the <see cref="SystemViewModel"/> class.</summary>
     /// <param name="dialogs">Confirmation and file dialogs.</param>
-    public SystemViewModel(IUserDialogs dialogs) => Dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
+    public SystemViewModel(IUserDialogs dialogs)
+    {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _status = "Connect and learn a device to edit system dumps.";
+        Dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
+    }
 
     /// <summary>Gets the dialogs.</summary>
     public IUserDialogs Dialogs { get; }
@@ -37,20 +43,16 @@ public sealed partial class SystemViewModel : ObservableObject, IDeviceTab
     public ObservableCollection<DumpSectionViewModel> Sections { get; } = [];
 
     /// <summary>Gets or sets the selected section.</summary>
-    [ObservableProperty]
     public partial DumpSectionViewModel? SelectedSection { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a device is attached.</summary>
-    [ObservableProperty]
     public partial bool IsAttached { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a transfer runs.</summary>
-    [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
     /// <summary>Gets or sets the status line.</summary>
-    [ObservableProperty]
-    public partial string Status { get; set; } = "Connect and learn a device to edit system dumps.";
+    public partial string Status { get; set; }
 
     /// <summary>Connects the tab to a learned device.</summary>
     /// <param name="dumps">The dump service.</param>

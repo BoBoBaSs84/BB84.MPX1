@@ -1,9 +1,10 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 namespace BB84.MPX1.App.ViewModels;
 
 /// <summary>One sort flag checkbox.</summary>
-public sealed partial class CategoryFlagViewModel(string name, int bit, bool isSource) : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class CategoryFlagViewModel(string name, int bit, bool isSource)
 {
     /// <summary>Gets the flag name.</summary>
     public string Name { get; } = name;
@@ -15,6 +16,5 @@ public sealed partial class CategoryFlagViewModel(string name, int bit, bool isS
     public bool IsSource { get; } = isSource;
 
     /// <summary>Gets or sets a value indicating whether the flag is set.</summary>
-    [ObservableProperty]
     public partial bool IsChecked { get; set; }
 }

@@ -1,9 +1,12 @@
 using System.Collections.Immutable;
 using System.Text;
 
+using BB84.SourceGenerators.Attributes;
+
 namespace BB84.MPX1.Core.Dumps;
 
 /// <summary>Front-panel LEDs that are single lamps (not headroom bars or 7-segment digits).</summary>
+[GenerateEnumeratorExtensions]
 public enum PanelLed
 {
     /// <summary>Pitch.</summary>

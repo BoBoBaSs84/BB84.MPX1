@@ -11,6 +11,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 ### Changed
 
 - **Program numbers match the front panel**: the app now numbers programs 1–250 like the MPX 1 display and the user guide (presets 1–200, user programs 201–250), instead of the protocol's 0–249. This applies to the Librarian list, status messages, confirmations, export file names, error messages and the Program tab's store box. The MIDI monitor still shows the protocol numbers it decodes from the wire.
+- MVVM source generation moved from CommunityToolkit.Mvvm to BB84.SourceGenerators. The app version, enum names and dispose code are now also generated at compile time. `ControlAddress` keeps its hand-written equality, because the generated version boxes the level array and enumerates it through LINQ on every dictionary lookup.
 
 ## 1.0.1 - 2026-11-15
 

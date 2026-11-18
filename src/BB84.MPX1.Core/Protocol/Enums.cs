@@ -1,3 +1,5 @@
+using BB84.SourceGenerators.Attributes;
+
 namespace BB84.MPX1.Core.Protocol;
 
 /// <summary>MPX 1 SysEx message classes (byte 5 of the header).</summary>
@@ -67,6 +69,7 @@ public enum ParameterAttributes : byte
 }
 
 /// <summary>Effect and controller types used by Report Effect Parameters (<c>18</c>) and soft values.</summary>
+[GenerateEnumeratorExtensions]
 public enum EffectType : byte
 {
     /// <summary>Pitch effect block.</summary>
@@ -127,6 +130,7 @@ public enum EffectStatus : byte
 
 /// <summary>Program "effect type" sort flags (Database Dump, Program Dump).</summary>
 [Flags]
+[GenerateEnumeratorExtensions]
 public enum EffectCategories : ushort
 {
     /// <summary>None.</summary>
@@ -159,6 +163,7 @@ public enum EffectCategories : ushort
 
 /// <summary>Program "source type" sort flags (Database Dump, Program Dump).</summary>
 [Flags]
+[GenerateEnumeratorExtensions]
 public enum SourceCategories : byte
 {
     /// <summary>None.</summary>

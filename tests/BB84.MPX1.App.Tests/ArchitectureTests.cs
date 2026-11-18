@@ -2,8 +2,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-
 using BB84.MPX1.App.ViewModels;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
@@ -179,13 +177,13 @@ public sealed partial class ArchitectureTests
     }
 
     [TestMethod]
-    [Description("PAT-001: view models use CommunityToolkit.Mvvm and the views use compiled bindings")]
+    [Description("PAT-001: view models use BB84.SourceGenerators and the views use compiled bindings")]
     public void App_UsesMvvmAndCompiledBindings()
     {
         Type[] viewModels = [.. AppAssembly.GetTypes().Where(t => t.Name.EndsWith("ViewModel", StringComparison.Ordinal) && t.IsClass && !t.IsAbstract && t.Namespace!.StartsWith("BB84.MPX1.App.ViewModels", StringComparison.Ordinal))];
         Assert.IsGreaterThanOrEqualTo(10, viewModels.Length);
         foreach (Type type in viewModels.Where(t => t.Name is not ("ModulatorBlockViewModel" or "ControlNodeViewModel" or "SoftRowEntryViewModel" or "PanelButtonViewModel")))
-            Assert.IsTrue(typeof(ObservableObject).IsAssignableFrom(type), $"{type.Name} must derive from ObservableObject.");
+            Assert.IsTrue(typeof(System.ComponentModel.INotifyPropertyChanged).IsAssignableFrom(type), $"{type.Name} must implement INotifyPropertyChanged.");
 
         Assert.Contains("<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>", ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"));
         foreach (string view in SourceFiles("src/BB84.MPX1.App/Views", "*.axaml"))

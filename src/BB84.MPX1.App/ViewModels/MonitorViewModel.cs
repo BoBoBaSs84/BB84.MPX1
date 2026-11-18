@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Midi;
@@ -13,7 +12,9 @@ namespace BB84.MPX1.App.ViewModels;
 /// MIDI monitor panel (UI-009). Frames arrive on background threads; they are queued and moved to the UI
 /// in batches so that a learning run (thousands of frames) does not flood the dispatcher.
 /// </summary>
-public sealed partial class MonitorViewModel : ObservableObject, IDisposable
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+[GenerateDisposable]
+public sealed partial class MonitorViewModel
 {
     /// <summary>Most entries kept.</summary>
     public const int Capacity = 2000;
@@ -22,6 +23,7 @@ public sealed partial class MonitorViewModel : ObservableObject, IDisposable
 
     private readonly ConcurrentQueue<MonitorEntry> _queue = new();
     private readonly IUiDispatcher _dispatcher;
+    [DisposeResource]
     private readonly ITimer _timer;
     private int _flushQueued;
 
@@ -39,7 +41,6 @@ public sealed partial class MonitorViewModel : ObservableObject, IDisposable
     public ObservableCollection<MonitorEntry> Entries { get; } = [];
 
     /// <summary>Gets or sets a value indicating whether new frames are ignored.</summary>
-    [ObservableProperty]
     public partial bool IsPaused { get; set; }
 
     /// <summary>Records a frame. Safe to call from any thread.</summary>
@@ -69,15 +70,12 @@ public sealed partial class MonitorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Removes all entries.</summary>
-    [RelayCommand]
+    [ActionCommand]
     public void Clear()
     {
         _queue.Clear();
         Entries.Clear();
     }
-
-    /// <inheritdoc/>
-    public void Dispose() => _timer.Dispose();
 
     private void QueueFlush()
     {

@@ -71,11 +71,11 @@ public sealed class FrontPanelTabTests
         await using MainWindowViewModel vm = await OpenPanelAsync();
         FrontPanelViewModel panel = vm.FrontPanel;
 
-        await panel.Buttons.Single(b => b.Name == "Bypass").ClickCommand.ExecuteAsync(null);
+        await panel.Buttons.Single(b => b.Name == "Bypass").ClickCommand.ExecuteAsync();
         Assert.AreEqual("Bypass", Line(panel.BottomLine).Trim());
         Assert.IsTrue(panel.Leds.Single(l => l.Led == PanelLed.Bypass).IsOn);
 
-        await panel.Buttons.Single(b => b.Name == "Edit").HoldCommand.ExecuteAsync(null);
+        await panel.Buttons.Single(b => b.Name == "Edit").HoldCommand.ExecuteAsync();
         Assert.AreEqual(PanelButtons.Find("Edit").Release, Simulator.LastButtonCode);
 
         await panel.TurnClockwiseAsync();

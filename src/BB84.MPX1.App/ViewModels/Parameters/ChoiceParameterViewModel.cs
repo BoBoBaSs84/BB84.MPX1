@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Database;
@@ -9,6 +9,7 @@ using BB84.MPX1.Midi.Editing;
 namespace BB84.MPX1.App.ViewModels.Parameters;
 
 /// <summary>Drop-down editor for parameters with a short, nameable value list (MIDI Speed, MIDI channel).</summary>
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
 public sealed partial class ChoiceParameterViewModel : ParameterViewModel
 {
     private readonly CoalescingWriter<int> _writer;
@@ -29,7 +30,6 @@ public sealed partial class ChoiceParameterViewModel : ParameterViewModel
     public IReadOnlyList<ChoiceItem> Choices { get; }
 
     /// <summary>Gets or sets the selected value.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? Selected { get; set; }
 
     /// <inheritdoc/>

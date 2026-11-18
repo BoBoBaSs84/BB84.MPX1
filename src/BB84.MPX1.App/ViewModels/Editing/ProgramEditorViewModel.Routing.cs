@@ -25,7 +25,7 @@ public sealed partial class ProgramEditorViewModel
                 : [(RoutingMode)slot.Block.Routing];
             RoutingRows.Add(new RoutingRowViewModel(slot, modes, OnRoutingRowChanged));
         }
-        OnPropertyChanged(nameof(RoutingMap));
+        RaisePropertyChanged(nameof(RoutingMap));
     }
 
     private void OnRoutingRowChanged(RoutingRowViewModel row)

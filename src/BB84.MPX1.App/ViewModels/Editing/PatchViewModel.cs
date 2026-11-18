@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Programs;
@@ -6,7 +6,8 @@ using BB84.MPX1.Core.Programs;
 namespace BB84.MPX1.App.ViewModels.Editing;
 
 /// <summary>One of the five program patches: source, source range, destination and destination range (UI-006).</summary>
-public sealed partial class PatchViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class PatchViewModel
 {
     private readonly IProgramDocument _document;
     private bool _applying;
@@ -53,39 +54,30 @@ public sealed partial class PatchViewModel : ObservableObject
     public DestinationPickerViewModel Destination { get; }
 
     /// <summary>Gets or sets the source controller.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedSource { get; set; }
 
     /// <summary>Gets or sets the source minimum (0–127).</summary>
-    [ObservableProperty]
     public partial int SourceMinimum { get; set; }
 
     /// <summary>Gets or sets the source mid value (0–127, −1 = not used).</summary>
-    [ObservableProperty]
     public partial int SourceMid { get; set; }
 
     /// <summary>Gets or sets the source maximum (0–127).</summary>
-    [ObservableProperty]
     public partial int SourceMaximum { get; set; }
 
     /// <summary>Gets or sets the destination minimum.</summary>
-    [ObservableProperty]
     public partial int DestinationMinimum { get; set; }
 
     /// <summary>Gets or sets the destination mid value.</summary>
-    [ObservableProperty]
     public partial int DestinationMid { get; set; }
 
     /// <summary>Gets or sets the destination maximum.</summary>
-    [ObservableProperty]
     public partial int DestinationMaximum { get; set; }
 
     /// <summary>Gets or sets the lowest destination value the parameter allows.</summary>
-    [ObservableProperty]
     public partial int DestinationLimitMinimum { get; set; }
 
     /// <summary>Gets or sets the highest destination value the parameter allows.</summary>
-    [ObservableProperty]
     public partial int DestinationLimitMaximum { get; set; }
 
     private bool IsSigned { get; set; }

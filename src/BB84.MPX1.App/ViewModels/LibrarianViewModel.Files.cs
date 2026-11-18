@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Files;
@@ -18,7 +18,7 @@ public sealed partial class LibrarianViewModel
     public ObservableCollection<DumpOptionViewModel> DumpOptions { get; } = [];
 
     /// <summary>Saves the selected slot as a <c>.syx</c> file (PRG-006).</summary>
-    [RelayCommand(CanExecute = nameof(CanRunOnSelection))]
+    [ActionCommand(CanExecute = nameof(CanRunOnSelection))]
     public Task ExportAsync() => RunOnSelectionAsync("Exporting…", async (librarian, slot, _, ct) =>
     {
         ProgramData program = await librarian.ReceiveAsync(slot.Number, ct);
@@ -28,7 +28,7 @@ public sealed partial class LibrarianViewModel
     });
 
     /// <summary>Stores the first program of a <c>.syx</c> file in the selected slot (PRG-006, PRG-004).</summary>
-    [RelayCommand(CanExecute = nameof(CanRunOnSelection))]
+    [ActionCommand(CanExecute = nameof(CanRunOnSelection))]
     public Task ImportAsync() => RunOnSelectionAsync("Importing…", async (librarian, slot, _, ct) =>
     {
         PickedFile? file = await _dialogs.OpenSyxAsync($"Import a program into {slot.NumberText}");
@@ -48,7 +48,7 @@ public sealed partial class LibrarianViewModel
     });
 
     /// <summary>Backs up programs, sort flags and the chosen system dumps into a <c>.syx</c> file (PRG-005).</summary>
-    [RelayCommand(CanExecute = nameof(CanRun))]
+    [ActionCommand(CanExecute = nameof(CanRun))]
     public Task BackupAsync() => RunAsync("Backing up…", async (librarian, progress, ct) =>
     {
         IReadOnlyList<Mpx1Message> messages = await librarian.BackupAsync([.. DumpOptions.Where(d => d.IsChecked).Select(d => d.Kind)], progress, ct);
@@ -58,7 +58,7 @@ public sealed partial class LibrarianViewModel
     });
 
     /// <summary>Restores a backup file after confirmation (PRG-005, CON-007).</summary>
-    [RelayCommand(CanExecute = nameof(CanRun))]
+    [ActionCommand(CanExecute = nameof(CanRun))]
     public Task RestoreAsync() => RunAsync("Restoring…", async (librarian, progress, ct) =>
     {
         PickedFile? file = await _dialogs.OpenSyxAsync("Restore a backup");

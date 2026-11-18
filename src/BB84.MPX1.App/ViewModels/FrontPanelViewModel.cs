@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.Services;
 using BB84.MPX1.Core.Dumps;
@@ -15,7 +14,8 @@ namespace BB84.MPX1.App.ViewModels;
 /// While the tab is visible it polls the Display and LED dumps every <see cref="PollInterval"/> and refreshes right
 /// after each button press.
 /// </summary>
-public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, IDisposable
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class FrontPanelViewModel : IDeviceTab, IDisposable
 {
     /// <summary>Time between mirror refreshes while the tab is visible.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
@@ -33,11 +33,16 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
     /// <param name="time">Time source for polling.</param>
     public FrontPanelViewModel(IUiDispatcher dispatcher, TimeProvider time)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _digits = "   ";
+        _messageTop = "";
+        _messageBottom = "";
+        _status = "Connect and learn a device to use the front panel.";
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _time = time ?? throw new ArgumentNullException(nameof(time));
         for (int i = 0; i < DisplayText.Size; i++)
             (i < DisplayText.LineLength ? TopLine : BottomLine).Add(new DisplayCellViewModel());
-        foreach (PanelLed led in Enum.GetValues<PanelLed>())
+        foreach (PanelLed led in PanelLedExtensions.GetValuesFast())
             Leds.Add(new LedViewModel(led));
         foreach (PanelButton button in PanelButtons.All)
             Buttons.Add(new PanelButtonViewModel(button, this));
@@ -56,48 +61,39 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
     public ObservableCollection<PanelButtonViewModel> Buttons { get; } = [];
 
     /// <summary>Gets or sets the lit LEDs of the left headroom bar (0–6).</summary>
-    [ObservableProperty]
     public partial int LeftHeadroom { get; set; }
 
     /// <summary>Gets or sets the lit LEDs of the right headroom bar (0–6).</summary>
-    [ObservableProperty]
     public partial int RightHeadroom { get; set; }
 
     /// <summary>Gets or sets the 7-segment digits.</summary>
-    [ObservableProperty]
-    public partial string Digits { get; set; } = "   ";
+    public partial string Digits { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a device with a front panel is attached.</summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(TurnClockwiseCommand), nameof(TurnCounterClockwiseCommand), nameof(TapCommand), nameof(ToggleABCommand), nameof(ShowTextCommand))]
+    [NotifyCanExecuteChanged(nameof(RefreshCommand), nameof(TurnClockwiseCommand), nameof(TurnCounterClockwiseCommand), nameof(TapCommand), nameof(ToggleABCommand), nameof(ShowTextCommand))]
     public partial bool IsAttached { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the V1.10 single-message Tap and A/B toggle exist.</summary>
-    [ObservableProperty]
     public partial bool HasV110Codes { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the tab is visible (polling runs only then).</summary>
-    [ObservableProperty]
     public partial bool IsActive { get; set; }
 
     /// <summary>Gets or sets the top line to show on the unit.</summary>
-    [ObservableProperty]
-    public partial string MessageTop { get; set; } = "";
+    public partial string MessageTop { get; set; }
 
     /// <summary>Gets or sets the bottom line to show on the unit.</summary>
-    [ObservableProperty]
-    public partial string MessageBottom { get; set; } = "";
+    public partial string MessageBottom { get; set; }
 
     /// <summary>Gets or sets the status line.</summary>
-    [ObservableProperty]
-    public partial string Status { get; set; } = "Connect and learn a device to use the front panel.";
+    public partial string Status { get; set; }
 
     partial void OnIsAttachedChanged(bool value)
     {
         foreach (PanelButtonViewModel button in Buttons)
         {
-            button.ClickCommand.NotifyCanExecuteChanged();
-            button.HoldCommand.NotifyCanExecuteChanged();
+            button.ClickCommand.RaiseCanExecuteChanged();
+            button.HoldCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -134,27 +130,27 @@ public sealed partial class FrontPanelViewModel : ObservableObject, IDeviceTab, 
     public Task HoldAsync(PanelButton button) => RunAsync(p => p.HoldAsync(button), $"{button.Name} (hold)");
 
     /// <summary>Turns the encoder one step clockwise.</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public Task TurnClockwiseAsync() => RunAsync(p => p.TurnAsync(1), "Encoder +");
 
     /// <summary>Turns the encoder one step counter-clockwise.</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public Task TurnCounterClockwiseAsync() => RunAsync(p => p.TurnAsync(-1), "Encoder −");
 
     /// <summary>Sends the V1.10 single-message Tap.</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public Task TapAsync() => RunAsync(p => p.SendAsync(PanelButtons.TapV110), "Tap");
 
     /// <summary>Sends the V1.10 single-message A/B toggle.</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public Task ToggleABAsync() => RunAsync(p => p.SendAsync(PanelButtons.ToggleABV110), "A/B");
 
     /// <summary>Shows <see cref="MessageTop"/> and <see cref="MessageBottom"/> on the unit's display (DMP-002).</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public Task ShowTextAsync() => RunAsync(p => p.WriteDisplayAsync(MessageTop, MessageBottom), "Message sent");
 
     /// <summary>Reads the display and LEDs once.</summary>
-    [RelayCommand(CanExecute = nameof(IsAttached))]
+    [ActionCommand(CanExecute = nameof(IsAttached))]
     public async Task RefreshAsync()
     {
         if (_panel is not { } panel || Interlocked.Exchange(ref _refreshing, 1) == 1)

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-using CommunityToolkit.Mvvm.ComponentModel;
+using BB84.SourceGenerators.Attributes;
 
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Programs;
@@ -13,7 +13,8 @@ namespace BB84.MPX1.App.ViewModels.Editing;
 /// One parameter inside an effect or modulator block of the program, edited offline from its learned description
 /// and the block layout (PRG-003, UI-006).
 /// </summary>
-public sealed partial class BlockParameterViewModel : ObservableObject
+[GenerateNotifications(propertyChanging: false, partialMethods: true, fields: false)]
+public sealed partial class BlockParameterViewModel
 {
     private readonly IProgramDocument _document;
     private readonly ParameterBlockLayout _layout;
@@ -31,6 +32,8 @@ public sealed partial class BlockParameterViewModel : ObservableObject
     public BlockParameterViewModel(IProgramDocument document, ParameterBlockLayout layout, int index,
         Func<ProgramData, ReadOnlySpan<byte>> read, Func<ProgramData, byte[], ProgramData> write)
     {
+        // Generated partial properties cannot have initializers, so their backing fields start here.
+        _displayText = "";
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _layout = layout ?? throw new ArgumentNullException(nameof(layout));
         _index = index;
@@ -66,24 +69,19 @@ public sealed partial class BlockParameterViewModel : ObservableObject
     public bool HasOptions => Options.Count > 0;
 
     /// <summary>Gets or sets the minimum of the selected unit.</summary>
-    [ObservableProperty]
     public partial int Minimum { get; set; }
 
     /// <summary>Gets or sets the maximum of the selected unit.</summary>
-    [ObservableProperty]
     public partial int Maximum { get; set; }
 
     /// <summary>Gets or sets the value.</summary>
-    [ObservableProperty]
     public partial int Value { get; set; }
 
     /// <summary>Gets or sets the option.</summary>
-    [ObservableProperty]
     public partial ChoiceItem? SelectedOption { get; set; }
 
     /// <summary>Gets or sets the offline display text (PAR-003).</summary>
-    [ObservableProperty]
-    public partial string DisplayText { get; set; } = "";
+    public partial string DisplayText { get; set; }
 
     /// <summary>Re-reads the value from the document.</summary>
     public void Refresh()

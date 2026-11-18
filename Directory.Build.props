@@ -10,6 +10,7 @@
     <VersionSuffix Condition="$(Configuration.Equals('Debug'))">Development</VersionSuffix>
     <VersionSuffix Condition="$(Configuration.Equals('Release'))">$(VersionStatus)</VersionSuffix>
     <FileVersion>$(VersionPrefix)</FileVersion>
+    <SourceRevisionId>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</SourceRevisionId>
   </PropertyGroup>
 
   <!-- Build related properties -->

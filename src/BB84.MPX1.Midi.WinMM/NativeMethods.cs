@@ -20,6 +20,7 @@ internal static unsafe partial class NativeMethods
     public const uint MIM_LONGDATA = 0x3C4;
     public const uint MIM_ERROR = 0x3C5;
     public const uint MIM_LONGERROR = 0x3C6;
+    public const uint MOM_DONE = 0x3C9;
 
     public const uint MHDR_DONE = 0x00000001;
 

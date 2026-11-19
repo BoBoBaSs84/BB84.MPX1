@@ -34,6 +34,7 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
     private nint[] _inputHeaders = [];
     private MidiPortId? _openInput;
     private MidiPortId? _openOutput;
+    private PendingSend? _pendingSend;
     private volatile bool _closing;
     private bool _disposed;
 
@@ -158,7 +159,8 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
     private unsafe void OpenOutput(uint index)
     {
         nint handle;
-        Check(midiOutOpen(&handle, index, 0, 0, CALLBACK_NULL), "midiOutOpen", input: false);
+        delegate* unmanaged<nint, uint, nint, nint, nint, void> callback = &MidiOutProc;
+        Check(midiOutOpen(&handle, index, (nint)callback, GCHandle.ToIntPtr(_self), CALLBACK_FUNCTION), "midiOutOpen", input: false);
         _outHandle = handle;
     }
 
@@ -183,22 +185,28 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         {
             handle = RequireOutput();
             header = AllocOutputHeader(frame.Span);
+
+            // The driver signals MOM_DONE when it has sent the buffer; the callback completes this send.
+            PendingSend pending = new(header);
+            Volatile.Write(ref _pendingSend, pending);
             PrepareAndSend(handle, header);
 
             // 31250 baud ≈ 3125 bytes/s; allow twice the wire time plus one second.
             TimeSpan timeout = TimeSpan.FromSeconds(1 + (frame.Length * 2.0 / 3125));
-            long start = _time.GetTimestamp();
-            while (!IsDone(header))
+            try
             {
-                if (_time.GetElapsedTime(start) > timeout)
-                    throw new WinMMException("Timed out while sending SysEx.");
-                await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+                await pending.Done.Task.WaitAsync(timeout, _time, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException) when (!IsDone(header))
+            {
+                throw new WinMMException("Timed out while sending SysEx.");
             }
 
             Unprepare(handle, header);
         }
         finally
         {
+            Volatile.Write(ref _pendingSend, null);
             ReleaseOutputHeader(handle, header);
             ReleaseSendLock();
         }
@@ -313,6 +321,28 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         }
     }
 
+    [UnmanagedCallersOnly]
+    private static void MidiOutProc(nint handle, uint message, nint instance, nint param1, nint param2)
+    {
+        try
+        {
+            if (message == MOM_DONE && GCHandle.FromIntPtr(instance).Target is WinMMMidiTransport transport)
+                transport.OnOutputDone(param1);
+        }
+        catch (Exception)
+        {
+            // Never let an exception cross the native boundary.
+        }
+    }
+
+    private void OnOutputDone(nint header)
+    {
+        // A late MOM_DONE for an earlier, reset header may carry the same address as the current one once the memory
+        // is reused; only a header the driver has really finished completes the send.
+        if (Volatile.Read(ref _pendingSend) is { } pending && pending.Header == header && IsDone(header))
+            pending.Done.TrySetResult();
+    }
+
     private unsafe void OnInput(uint message, nint param1)
     {
         switch (message)
@@ -376,19 +406,18 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         _closing = true;
 
         bool inputClosed = CloseInput();
+        bool outputClosed = CloseOutput();
 
         // A driver that failed to close may still call back and write into the buffers, so leaking them
-        // and the callback's GCHandle is safer than freeing them.
+        // and the callbacks' GCHandle is safer than freeing them.
         if (inputClosed)
         {
             foreach (nint header in _inputHeaders)
                 FreeHeader(header);
-            if (_self.IsAllocated)
-                _self.Free();
         }
+        if (inputClosed && outputClosed && _self.IsAllocated)
+            _self.Free();
         _inputHeaders = [];
-
-        CloseOutput();
 
         _openInput = null;
         _openOutput = null;
@@ -430,18 +459,22 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
         return closed;
     }
 
-    private void CloseOutput()
+    /// <summary>Resets and closes the output port.</summary>
+    /// <returns><see langword="true"/> when the driver no longer calls back.</returns>
+    private bool CloseOutput()
     {
         if (_outHandle == 0)
-            return;
+            return true;
 
         _ = midiOutReset(_outHandle);
-        if (midiOutClose(_outHandle) != MMSYSERR_NOERROR)
+        bool closed = midiOutClose(_outHandle) == MMSYSERR_NOERROR;
+        if (!closed)
         {
             _ = midiOutReset(_outHandle);
-            _ = midiOutClose(_outHandle);
+            closed = midiOutClose(_outHandle) == MMSYSERR_NOERROR;
         }
         _outHandle = 0;
+        return closed;
     }
 
     private nint RequireOutput()
@@ -463,6 +496,14 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
 
     private static Channel<MidiInput> CreateInbox()
         => Channel.CreateUnbounded<MidiInput>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+
+    /// <summary>The SysEx buffer in flight and the signal that the driver has sent it.</summary>
+    /// <param name="Header">The MIDIHDR passed to <c>midiOutLongMsg</c>.</param>
+    private sealed record PendingSend(nint Header)
+    {
+        /// <summary>Completes on MOM_DONE; continuations never run on the driver's callback thread.</summary>
+        public TaskCompletionSource Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
 
     private static unsafe void Check(uint result, string function, bool input)
     {

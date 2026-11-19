@@ -210,4 +210,30 @@ public sealed class ServiceTests
         fs.ReadFailure = new UnauthorizedAccessException();
         Assert.AreEqual(new AppSettings(), store.Load());
     }
+
+    [TestMethod]
+    public async Task Forget_HandsFailuresToTheHandler()
+    {
+        TaskCompletionSource<Exception> reported = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource running = new();
+        InvalidOperationException failure = new("boom");
+
+        running.Task.Forget(ex => reported.TrySetResult(ex));
+        running.SetException(failure);
+
+        Assert.AreSame(failure, await reported.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task Forget_IgnoresSuccess()
+    {
+        bool called = false;
+        TaskCompletionSource running = new();
+
+        running.Task.Forget(_ => called = true);
+        running.SetResult();
+        await Task.Yield();
+
+        Assert.IsFalse(called);
+    }
 }

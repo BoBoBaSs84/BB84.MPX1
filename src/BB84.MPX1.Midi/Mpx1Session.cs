@@ -119,9 +119,7 @@ public sealed class Mpx1Session : IAsyncDisposable
                     await SendFrameAsync(frame, message, cancellationToken).ConfigureAwait(false);
                     attempts++;
 
-                    Task completed = await Task.WhenAny(pending.Completion.Task, Task.Delay(Options.RequestTimeout, _time, cancellationToken)).ConfigureAwait(false);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (completed == pending.Completion.Task)
+                    if (await CompletesWithinAsync(pending.Completion.Task, Options.RequestTimeout, cancellationToken).ConfigureAwait(false))
                         return await pending.Completion.Task.ConfigureAwait(false);
                 }
                 finally
@@ -168,8 +166,7 @@ public sealed class Mpx1Session : IAsyncDisposable
         try
         {
             await SendFrameAsync(frame, message, cancellationToken).ConfigureAwait(false);
-            await Task.WhenAny(busyObserved.Task, Task.Delay(Options.GetBusyWait(frame.Length), _time, cancellationToken)).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
+            _ = await CompletesWithinAsync(busyObserved.Task, Options.GetBusyWait(frame.Length), cancellationToken).ConfigureAwait(false);
             await WaitUntilReadyAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -314,9 +311,7 @@ public sealed class Mpx1Session : IAsyncDisposable
         if (gate is null)
             return;
 
-        Task completed = await Task.WhenAny(gate, Task.Delay(Options.ReadyTimeout, _time, cancellationToken)).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (completed != gate)
+        if (!await CompletesWithinAsync(gate, Options.ReadyTimeout, cancellationToken).ConfigureAwait(false))
         {
             lock (_stateLock)
             {
@@ -325,6 +320,24 @@ public sealed class Mpx1Session : IAsyncDisposable
             }
             throw new Mpx1TimeoutException($"Device reported BUSY and did not send READY within {Options.ReadyTimeout.TotalMilliseconds} ms.");
         }
+    }
+
+    /// <summary>
+    /// Waits for a task or a timeout, whichever comes first, and stops the timeout timer when the task wins. The task's
+    /// outcome is not observed, so a cancelled or faulted task counts as completed.
+    /// </summary>
+    /// <param name="task">The task to wait for.</param>
+    /// <param name="timeout">The timeout.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><see langword="true"/> when the task completed first; <see langword="false"/> on timeout.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+    private async Task<bool> CompletesWithinAsync(Task task, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource stopDelay = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task completed = await Task.WhenAny(task, Task.Delay(timeout, _time, stopDelay.Token)).ConfigureAwait(false);
+        await stopDelay.CancelAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return completed == task;
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)

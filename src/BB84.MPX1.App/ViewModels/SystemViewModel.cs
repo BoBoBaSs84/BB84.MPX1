@@ -132,9 +132,13 @@ public sealed partial class SystemViewModel : IDeviceTab
         return data;
     }
 
+    /// <summary>Shows a failure of a transfer that nobody awaits in <see cref="Status"/>.</summary>
+    /// <param name="exception">The failure.</param>
+    internal void ShowFailure(Exception exception) => Status = OperationStatus.Describe(exception);
+
     partial void OnSelectedSectionChanged(DumpSectionViewModel? value)
     {
         if (value is { IsLoaded: false } && IsAttached)
-            _ = value.ReadAsync();
+            value.ReadAsync().Forget(ShowFailure);
     }
 }

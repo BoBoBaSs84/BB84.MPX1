@@ -1,7 +1,9 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 
 using Avalonia.Controls;
 
+using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
 
 namespace BB84.MPX1.App.Views;
@@ -29,7 +31,7 @@ public sealed partial class MainWindow : Window
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = viewModel;
-        Opened += async (_, _) => await viewModel.InitializeAsync();
+        Opened += (_, _) => viewModel.InitializeAsync().Forget(ex => viewModel.StatusMessage = OperationStatus.Describe(ex));
         viewModel.Monitor.Entries.CollectionChanged += OnMonitorChanged;
     }
 
@@ -53,6 +55,11 @@ public sealed partial class MainWindow : Window
         try
         {
             await _viewModel.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            // The process is exiting; an exception here would crash it on the dispatcher instead.
+            Trace.TraceError($"Closing the MIDI connection failed: {ex}");
         }
         finally
         {

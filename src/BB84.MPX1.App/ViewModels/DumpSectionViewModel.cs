@@ -209,7 +209,7 @@ public sealed partial class DumpSectionViewModel
     {
         IsLoaded = false;
         if (value is not null && _owner.IsAttached)
-            _ = ReadAsync();
+            ReadAsync().Forget(_owner.ShowFailure);
     }
 
     private byte[] WithSetup(byte[] all, byte[] setup)

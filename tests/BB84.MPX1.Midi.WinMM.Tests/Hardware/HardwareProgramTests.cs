@@ -229,6 +229,180 @@ public sealed class HardwareProgramTests
         AssertSameBytes(rig, changed, readBack, "read back");
     }
 
+    [TestMethod]
+    [Description("PRG-005, PRG-004, CON-007, SES-005: a full backup restored with handshake flow control yields a second backup identical apart from unused effect-data bytes")]
+    public async Task FullRestore_SecondBackupMatches()
+    {
+        await using HardwareRig rig = await HardwareRig.OpenAsync(TestContext);
+        await using Mpx1Session session = rig.StartSession();
+        ParameterDatabase database = await rig.LoadDatabaseAsync(session);
+        ProgramLibrarian librarian = new(session, database);
+        IReadOnlyList<SystemDumpKind> dumps = librarian.AvailableDumps();
+        Stopwatch watch = Stopwatch.StartNew();
+
+        IReadOnlyList<Mpx1Message> first = await librarian.BackupAsync(dumps, cancellationToken: TestContext.CancellationToken);
+        byte[] file = SyxFile.Write(first);
+        string backup = HardwareRig.ArtifactPath("backups", $"MPX1 backup before restore test {Stamp()}.syx");
+        File.WriteAllBytes(backup, file);
+        rig.Log($"Backed up {first.Count} messages in {watch.Elapsed.TotalSeconds:F1} s to {backup}.");
+
+        RestorePlan plan = librarian.Plan(SyxFile.Read(file));
+        foreach (string warning in plan.Warnings)
+            rig.Log($"Plan warning: {warning}");
+        Assert.IsEmpty(plan.Warnings);
+        Assert.AreEqual(ProgramSlots.FirstUser, plan.PresetCount);
+        rig.Log($"Plan: {plan.Programs.Length} programs ({plan.PresetCount} presets), sort flags {plan.Database is not null}, {plan.Dumps.Length} system dumps.");
+
+        RestoreTiming timing = new();
+        IReadOnlyList<ushort> unset;
+        session.FrameTraffic += timing.OnFrame;
+        try
+        {
+            await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => librarian.RestoreAsync(plan, presetsConfirmed: false, cancellationToken: TestContext.CancellationToken));
+            Assert.AreEqual(0, timing.Sent, "Nothing is sent before the presets are confirmed.");
+
+            watch.Restart();
+            Progress<LibraryProgress> progress = new(p => rig.Log($"Restore: {p.Step} {p.Done}/{p.Total}"));
+            unset = await librarian.RestoreAsync(plan, presetsConfirmed: true, progress, TestContext.CancellationToken);
+            rig.Log($"Restored in {watch.Elapsed.TotalSeconds:F1} s. Sort flags not restored: {(unset.Count == 0 ? "none" : string.Join(", ", unset.Select(n => n + 1)))}.");
+        }
+        finally
+        {
+            session.FrameTraffic -= timing.OnFrame;
+        }
+        foreach (string line in timing.Summary())
+            rig.Log(line);
+
+        watch.Restart();
+        IReadOnlyList<Mpx1Message> second = await librarian.BackupAsync(dumps, cancellationToken: TestContext.CancellationToken);
+        rig.Log($"Second backup: {second.Count} messages in {watch.Elapsed.TotalSeconds:F1} s.");
+
+        // Preset reads carry varying values in effect-data bytes no parameter uses (spec section 9, E19).
+        int differing = 0;
+        int paddingOnly = 0;
+        foreach ((Mpx1Message before, Mpx1Message after) in first.Zip(second))
+        {
+            byte[] b = before.ToBytes();
+            byte[] a = after.ToBytes();
+            if (b.AsSpan().SequenceEqual(a))
+                continue;
+            if (Comparable(database, before).AsSpan().SequenceEqual(Comparable(database, after)))
+            {
+                paddingOnly++;
+                continue;
+            }
+            differing++;
+            int[] offsets = [.. Enumerable.Range(0, Math.Min(b.Length, a.Length)).Where(i => b[i] != a[i]).Take(10)];
+            rig.Log($"{Name(before)} differs: {b.Length} vs {a.Length} bytes, first frame offsets {string.Join(", ", offsets)}.");
+        }
+        rig.Log($"Programs that differ only in unused effect-data bytes: {paddingOnly}.");
+        Assert.IsEmpty(unset, "Sort flags not restored.");
+        Assert.HasCount(first.Count, second, "Message count of the second backup.");
+        Assert.AreEqual(0, differing, $"{differing} messages differ after the restore.");
+    }
+
+    private static byte[] Comparable(ParameterDatabase database, Mpx1Message message)
+        => message is ProgramDump dump ? (dump with { Program = database.WithoutUnusedEffectBytes(dump.Program) }).ToBytes() : message.ToBytes();
+
+    [TestMethod]
+    [Description("PRO-018: a sort-flag change of preset 1, written as a compensated Database Dump on V1.00, reads back at once and is restored (spec 9, E18)")]
+    public async Task SortFlags_PresetChange_RoundTrips()
+    {
+        await using HardwareRig rig = await HardwareRig.OpenAsync(TestContext);
+        await using Mpx1Session session = rig.StartSession();
+        ParameterDatabase database = await rig.LoadDatabaseAsync(session);
+        ProgramLibrarian librarian = new(session, database);
+        ProgramCategories[] original = [.. (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries];
+        File.WriteAllBytes(HardwareRig.ArtifactPath("backups", $"sort flags before write test {Stamp()}.syx"), SyxFile.Write([new DatabaseDump(rig.Device, [.. original])]));
+        ProgramCategories[] changed = [.. original];
+        changed[0] = original[0] with { Sources = original[0].Sources ^ SourceCategories.SoundFX };
+
+        IReadOnlyList<ushort> unsetChanged;
+        ProgramCategories[] afterChange;
+        IReadOnlyList<ushort> unsetRestored;
+        try
+        {
+            unsetChanged = await librarian.WriteDatabaseAsync(changed, TestContext.CancellationToken);
+            afterChange = [.. (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries];
+        }
+        finally
+        {
+            unsetRestored = await librarian.WriteDatabaseAsync(original, CancellationToken.None);
+        }
+        ProgramCategories[] restored = [.. (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries];
+
+        rig.Log($"Program 001: original {original[0]}, written {changed[0]}, read {afterChange[0]}. Not taken: {string.Join(", ", unsetChanged)} / {string.Join(", ", unsetRestored)}.");
+        CollectionAssert.IsSubsetOf(unsetChanged.ToArray(), SortFlagTable.UnwritableOnV100.ToArray());
+        CollectionAssert.IsSubsetOf(unsetRestored.ToArray(), SortFlagTable.UnwritableOnV100.ToArray());
+        Assert.AreEqual(changed[0], afterChange[0]);
+        int[] differing = [.. Enumerable.Range(0, restored.Length).Where(i => restored[i] != original[i])];
+        Assert.AreSequenceEqual(unsetRestored.Select(n => (int)n).ToArray(), differing);
+    }
+
+    private static string Name(Mpx1Message message) => message switch
+    {
+        ProgramDump dump => $"Program {dump.ProgramNumber + 1:D3} \"{dump.Program.Name.Trim()}\"",
+        ParameterData data => $"Dump {data.Address}",
+        _ => message.GetType().Name,
+    };
+
+    /// <summary>Measures, for every bulk write, the time to BUSY and from BUSY to READY.</summary>
+    private sealed class RestoreTiming
+    {
+        private readonly List<double> _toBusy = [];
+        private readonly List<double> _toReady = [];
+        private DateTimeOffset? _sent;
+        private DateTimeOffset? _busy;
+        private int _noBusy;
+
+        public int Sent { get; private set; }
+
+        public void OnFrame(object? sender, FrameEventArgs e)
+        {
+            lock (_toBusy)
+            {
+                switch (e.Direction, e.Message)
+                {
+                    case (FrameDirection.Sent, ProgramDump or DatabaseDump or ParameterData { Data.Length: > 2 }):
+                        if (_sent is not null && _busy is null)
+                            _noBusy++;
+                        Sent++;
+                        _sent = e.Timestamp;
+                        _busy = null;
+                        break;
+                    case (FrameDirection.Sent, _):
+                        Sent++;
+                        break;
+                    case (FrameDirection.Received, Handshake { Command: HandshakeCommand.Busy }) when _sent is { } sent:
+                        _busy = e.Timestamp;
+                        _toBusy.Add((e.Timestamp - sent).TotalMilliseconds);
+                        break;
+                    case (FrameDirection.Received, Handshake { Command: HandshakeCommand.Ready }) when _busy is { } busy:
+                        _toReady.Add((e.Timestamp - busy).TotalMilliseconds);
+                        _sent = null;
+                        _busy = null;
+                        break;
+                }
+            }
+        }
+
+        public string[] Summary()
+        {
+            lock (_toBusy)
+            {
+                int noBusy = _noBusy + (_sent is not null && _busy is null ? 1 : 0);
+                return [
+                    $"Frames sent: {Sent}. Bulk writes without BUSY: {noBusy}.",
+                    $"Send to BUSY: {Stats(_toBusy)}.",
+                    $"BUSY to READY: {Stats(_toReady)}.",
+                ];
+            }
+        }
+
+        private static string Stats(List<double> values)
+            => values.Count == 0 ? "none" : $"{values.Count} times, min {values.Min():F0} ms, avg {values.Average():F0} ms, max {values.Max():F0} ms";
+    }
+
     private static void AssertSameBytes(HardwareRig rig, ProgramData expected, ProgramData? actual, string what)
     {
         Assert.IsNotNull(actual, $"Nothing {what}.");

@@ -29,9 +29,9 @@ public sealed partial class LibrarianViewModel
     [ActionCommand(CanExecute = nameof(CanWriteFlags))]
     public Task WriteFlagsAsync() => RunAsync("Writing sort flags…", async (librarian, _, ct) =>
     {
-        await librarian.WriteDatabaseAsync([.. Slots.Select(s => s.Categories)], ct);
+        IReadOnlyList<ushort> unset = await librarian.WriteDatabaseAsync([.. Slots.Select(s => s.Categories)], ct);
         HasUnsavedFlags = false;
-        return "Sort flags written.";
+        return $"Sort flags written.{KeptFlags(unset)}";
     });
 
     partial void OnSelectedSlotChanged(ProgramSlotViewModel? value)
@@ -66,6 +66,10 @@ public sealed partial class LibrarianViewModel
             HasUnsavedFlags = true;
         }
     }
+
+    // A V1.00 unit cannot store every sort flag it receives (spec section 9, E18).
+    private static string KeptFlags(IReadOnlyList<ushort> unset)
+        => unset.Count == 0 ? "" : $" The MPX 1 kept different sort flags for {string.Join(", ", unset.Select(n => ProgramSlots.DisplayNumber(n)))}.";
 
     private bool CanWriteFlags() => CanRun() && IsLoaded && HasUnsavedFlags;
 }

@@ -157,16 +157,49 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     public Task<DatabaseDump> ReadDatabaseAsync(CancellationToken cancellationToken = default)
         => _session.RequestAsync<DatabaseDump>(Request.DatabaseDump(_session.Device), cancellationToken);
 
-    /// <summary>Writes the sort flags of all programs. Changing flags of presets needs confirmation.</summary>
+    /// <summary>
+    /// Writes the sort flags of all programs, then reads them back. Nothing is written when the unit already holds
+    /// <paramref name="entries"/>. A V1.00 unit stores a received Database Dump with an offset (spec section 9, E18):
+    /// changed user programs are then written as Program Dumps, which carry their sort flags, and changed presets
+    /// as a Database Dump shifted to compensate (<see cref="SortFlagTable.CompensateForV100"/>).
+    /// </summary>
     /// <param name="entries">250 entries.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task WriteDatabaseAsync(IReadOnlyList<ProgramCategories> entries, CancellationToken cancellationToken = default)
+    /// <returns>The programs whose sort flags differ from <paramref name="entries"/> after the write.</returns>
+    public async Task<IReadOnlyList<ushort>> WriteDatabaseAsync(IReadOnlyList<ProgramCategories> entries, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entries);
         if (entries.Count != DatabaseDump.ProgramCount)
             throw new ArgumentException($"The database has {DatabaseDump.ProgramCount} entries.", nameof(entries));
-        return _session.SendAsync(new DatabaseDump(_session.Device, [.. entries]), cancellationToken);
+
+        ushort[] changed = Differences((await ReadDatabaseAsync(cancellationToken).ConfigureAwait(false)).Entries, entries);
+        if (changed.Length == 0)
+            return [];
+
+        if (!SortFlagTable.HasReceiveOffset(_database.Key.MajorVersion, _database.Key.MinorVersion))
+        {
+            await _session.SendAsync(new DatabaseDump(_session.Device, [.. entries]), cancellationToken).ConfigureAwait(false);
+        }
+        else if (changed.Any(n => ProgramSlots.IsPreset(n)))
+        {
+            await _session.SendAsync(new DatabaseDump(_session.Device, SortFlagTable.CompensateForV100(entries)), cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            foreach (ushort number in changed)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (await IsClearedAsync(number, cancellationToken).ConfigureAwait(false))
+                    continue;
+                ProgramDump dump = await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, number), cancellationToken).ConfigureAwait(false);
+                await SendDumpAsync(number, dump.Program with { Categories = entries[number] }, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        return Differences((await ReadDatabaseAsync(cancellationToken).ConfigureAwait(false)).Entries, entries);
     }
+
+    private static ushort[] Differences(IReadOnlyList<ProgramCategories> actual, IReadOnlyList<ProgramCategories> expected)
+        => [.. Enumerable.Range(0, DatabaseDump.ProgramCount).Where(i => actual[i] != expected[i]).Select(i => (ushort)i)];
 
     /// <summary>
     /// Returns the system dump kinds the learned database contains, for backups. Single setups are left out when the
@@ -290,26 +323,23 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
     }
 
     /// <summary>
-    /// Writes a restore plan with handshake flow control (PRG-005, SES-005): Database Dump, programs, then system
-    /// dumps. Overwriting presets needs <paramref name="presetsConfirmed"/> (PRG-004, CON-007).
+    /// Writes a restore plan with handshake flow control (PRG-005, SES-005): programs, system dumps, then the sort
+    /// flags through <see cref="WriteDatabaseAsync"/>, which writes only what still differs after the Program Dumps.
+    /// Overwriting presets needs <paramref name="presetsConfirmed"/> (PRG-004, CON-007).
     /// </summary>
     /// <param name="plan">The plan from <see cref="Plan"/>.</param>
     /// <param name="presetsConfirmed">The user confirmed overwriting presets.</param>
     /// <param name="progress">Progress receiver.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The programs whose sort flags could not be restored (on V1.00, see <see cref="SortFlagTable.UnwritableOnV100"/>).</returns>
     /// <exception cref="PresetOverwriteException">The plan writes presets and they were not confirmed.</exception>
-    public async Task RestoreAsync(RestorePlan plan, bool presetsConfirmed, IProgress<LibraryProgress>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ushort>> RestoreAsync(RestorePlan plan, bool presetsConfirmed, IProgress<LibraryProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         RequirePresetConfirmation(plan.PresetCount > 0, presetsConfirmed, $"The restore overwrites {plan.PresetCount} factory preset(s).");
 
         int total = (plan.Database is null ? 0 : 1) + plan.Programs.Length + plan.Dumps.Length;
         int done = 0;
-        if (plan.Database is { } sortFlags)
-        {
-            await _session.SendAsync(sortFlags with { Device = _session.Device }, cancellationToken).ConfigureAwait(false);
-            Report(progress, "Database", ++done, total);
-        }
         foreach (ProgramDump dump in plan.Programs)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -322,6 +352,11 @@ public sealed class ProgramLibrarian(Mpx1Session session, ParameterDatabase data
             await _session.SendAsync(data with { Device = _session.Device }, cancellationToken).ConfigureAwait(false);
             Report(progress, "System dumps", ++done, total);
         }
+        if (plan.Database is not { } sortFlags)
+            return [];
+        IReadOnlyList<ushort> unset = await WriteDatabaseAsync(sortFlags.Entries, cancellationToken).ConfigureAwait(false);
+        Report(progress, "Database", ++done, total);
+        return unset;
     }
 
     private Task SendDumpAsync(ushort number, ProgramData program, CancellationToken cancellationToken)

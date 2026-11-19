@@ -252,7 +252,7 @@ public sealed partial class Mpx1Simulator : IMidiTransport
                 SignalBusy();
                 break;
             case DatabaseDump database:
-                _database = [.. database.Entries];
+                _database = _specials.DatabaseReceiveOffset ? [.. SortFlagTable.ReceivedByV100(database.Entries)] : [.. database.Entries];
                 SignalBusy();
                 break;
         }
@@ -263,7 +263,12 @@ public sealed partial class Mpx1Simulator : IMidiTransport
         if (dump.ProgramNumber == Request.ActiveProgram)
             _active = dump.Program;
         else if (dump.ProgramNumber < _programs.Length)
+        {
             _programs[dump.ProgramNumber] = dump.Program;
+            // Like the unit, a user program dump sets the program's sort flags; a preset dump leaves them (spec section 9, E18).
+            if (ProgramSlots.IsUser(dump.ProgramNumber))
+                _database[dump.ProgramNumber] = dump.Program.Categories;
+        }
     }
 
     // Appendix D bug 3: editing parameters of an algorithm that is not loaded can crash the unit.

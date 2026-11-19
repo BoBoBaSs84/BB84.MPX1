@@ -145,7 +145,10 @@ public sealed partial class Mpx1Simulator
         // Like the unit, a cleared stored program ("available" user register) gets no answer.
         ushort number = request.GetWord(0);
         if (ProgramOrActive(number) is { } program && (number == Request.ActiveProgram || !program.IsCleared))
-            Respond(new ProgramDump(Options.Device, number, program));
+        {
+            // A stored program reports the sort flags of the Database Dump, as on the unit.
+            Respond(new ProgramDump(Options.Device, number, number < _database.Length ? program with { Categories = _database[number] } : program));
+        }
     }
 
     private ParameterDescription Describe(ushort type)

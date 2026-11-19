@@ -79,9 +79,9 @@ public sealed partial class LibrarianViewModel
         if (!await _dialogs.ConfirmAsync("Restore backup", $"Restoring {file.Name} overwrites {string.Join(", ", parts)} on the MPX 1. This cannot be undone.{skipped}", "Restore"))
             return "Restore cancelled.";
 
-        await librarian.RestoreAsync(plan, presetsConfirmed: true, progress, ct);
+        IReadOnlyList<ushort> unset = await librarian.RestoreAsync(plan, presetsConfirmed: true, progress, ct);
         ReplaceSlots(await librarian.ListAsync(null, ct));
-        return $"Restored {file.Name}.";
+        return $"Restored {file.Name}.{KeptFlags(unset)}";
     });
 
     private static string SafeFileName(string name)

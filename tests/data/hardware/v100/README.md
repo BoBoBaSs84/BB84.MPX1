@@ -15,6 +15,8 @@ MIDI traffic recorded from a real Lexicon MPX 1 by the `Hardware` tests (roadmap
 | `write-slot-215.jsonl` | `WriteSlot_RoundTripsAndRestores` | Program 214 written, read back, restored, with BUSY/READY |
 | `system-dumps-write-back.jsonl` | `SystemDumps_WriteBackUnchanged` | System dumps read, written back unchanged, read again |
 | `read-empty-slot-250.jsonl` | `ReadEmptySlot_ThrowsEmptyProgram` | Program Information of an empty user program |
+| `full-restore.jsonl` | `FullRestore_SecondBackupMatches` | Backup, full restore (209 programs, system dumps, sort flags unchanged so not written), second backup; recorded 2026-11-18 |
+| `sort-flags-preset-1.jsonl` | `SortFlags_PresetChange_RoundTrips` | Sort flags of program 1 changed with a compensated Database Dump (E18) and restored; recorded 2026-11-18 |
 
 `learn.jsonl` also feeds the V1.00 simulator fixture: `FixtureBuilder` turns the database learned from it into a full-tree fixture, and the Librarian, front-panel and simulator tests run against it as well as against the V1.10 fixture.
 

@@ -6,19 +6,28 @@ Delivery plan for the clean-room Lexicon MPX 1 SysEx editor. Requirement IDs ref
 
 ## Overview
 
-| #   | Milestone                               | Depends on                       | Status       |
-| --- | --------------------------------------- | -------------------------------- | ------------ |
-| M0  | Repository scaffold & CI                | —                                | Done         |
-| M1  | Core protocol codec                     | M0                               | Done         |
-| M2  | Transport & session                     | M1                               | Done         |
-| M3  | Simulator & replay                      | M1, M2                           | Done         |
-| M4  | Learning & parameter database           | M2, M3                           | Done         |
-| M5  | Application shell & parameter editing   | M4                               | Done         |
-| M6  | Programs, librarian & files             | M4, M5                           | Done         |
-| M7  | Full spec coverage: dumps & front panel | M5, M6                           | Done         |
-| M8  | Hardware validation (optional)          | M4+                              | Done (V1.00) |
-| M9  | Release 1.0                             | M7 (M8 if hardware is available) | Ready to tag |
-| P1  | Cross-platform transports (post-1.0)    | M9                               | Planned      |
+| #    | Milestone                               | Depends on                       | Status       |
+| ---- | --------------------------------------- | -------------------------------- | ------------ |
+| M0   | Repository scaffold & CI                | —                                | Done         |
+| M1   | Core protocol codec                     | M0                               | Done         |
+| M2   | Transport & session                     | M1                               | Done         |
+| M3   | Simulator & replay                      | M1, M2                           | Done         |
+| M4   | Learning & parameter database           | M2, M3                           | Done         |
+| M5   | Application shell & parameter editing   | M4                               | Done         |
+| M6   | Programs, librarian & files             | M4, M5                           | Done         |
+| M7   | Full spec coverage: dumps & front panel | M5, M6                           | Done         |
+| M8   | Hardware validation (optional)          | M4+                              | Done (V1.00) |
+| M9   | Release 1.0                             | M7 (M8 if hardware is available) | Done         |
+| P1   | Linux support (post-1.0)                | M9                               | Planned      |
+| P1.1 | Linux groundwork & CI                   | M9                               | Planned      |
+| P1.2 | ALSA sequencer transport                | P1.1                             | Planned      |
+| P1.3 | Linux publish & AppImage                | P1.1                             | Planned      |
+| P1.4 | Flatpak                                 | P1.2, P1.3                       | Planned      |
+| P1.5 | Linux validation & release              | P1.2, P1.3, P1.4                 | Planned      |
+| P2   | macOS support (post-1.0)                | P1                               | Planned      |
+| P2.1 | CoreMIDI transport & macOS CI           | P1                               | Planned      |
+| P2.2 | macOS publish & app bundle              | P2.1                             | Planned      |
+| P2.3 | Code signing & notarization (last)      | P2.2                             | Planned      |
 
 M8 ran on a V1.00 unit; its recordings are replayed in tests (`tests/data/hardware/v100`). V1.10 hardware has not been tested.
 
@@ -219,21 +228,139 @@ M9 is complete except for its exit criteria that need the maintainer: pushing th
 - Tagged `v1.0.1` release with an attached `win-x64` zip.
 - A clean Windows machine runs the exe without installing .NET.
 
-## P1 — Cross-platform transports (post-1.0)
+## P1 — Linux support (post-1.0)
 
-**Goal**: Run on macOS and Linux.
+**Goal**: Run on Linux x64 with real MIDI ports, shipped as an AppImage and a Flatpak.
+
+Linux comes before macOS because the maintainer can test it in a Linux VM. P1.2 and P1.3 depend only on P1.1 and can run in parallel.
+
+### P1.1 — Linux groundwork & CI
+
+Issue [#40](https://github.com/BoBoBaSs84/BB84.MPX1/issues/40).
+
+**Goal**: The solution builds and its tests pass on Linux, using the simulator as the only transport.
 
 **Scope**
 
-- CoreMIDI adapter (macOS).
-- ALSA sequencer adapter (Linux).
-- `osx-arm64`, `osx-x64` and `linux-x64` AOT publishes.
-- CI matrix.
+- CI matrix: build and test on `ubuntu-latest` next to `windows-latest`. WinMM tests stay Windows-only.
+- Transport selection by OS in `MidiPortCatalog.CreateDefault`, ready for further adapters. Without a hardware transport the app keeps offering only the simulator.
+- Settings and learned-database paths follow the XDG directories on Linux (`$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`).
+- `build/package.ps1` takes the runtime identifier as a parameter instead of hard-coding `win-x64`.
+- Spec CON-001, AC-018 and the CI/CD section list the supported runtime identifiers.
 
 **Exit criteria**
 
-- Session and integration tests pass on each OS.
-- Port enumeration and SysEx round-trip are verified manually on each OS.
+- CI is green on Windows and Linux.
+- The app starts on Linux (a `dotnet run` build is enough) and works against the simulator.
+
+### P1.2 — ALSA sequencer transport
+
+Issue [#41](https://github.com/BoBoBaSs84/BB84.MPX1/issues/41).
+
+**Goal**: Real MIDI ports on Linux.
+
+**Scope**
+
+- New project `BB84.MPX1.Midi.Alsa` implementing `IMidiTransport` on the ALSA sequencer API (`libasound.so.2`), P/Invoke via `[LibraryImport]` only (TRN-001, TRN-002).
+- Port enumeration with stable IDs built from client and port names, made unique like the WinMM adapter (TRN-006).
+- One application client with one input and one output port; subscriptions to the chosen ports.
+- SysEx in: ALSA delivers long SysEx in chunks; reassemble them with `SysExAssembler`. Drop clock and active sensing like the WinMM adapter.
+- SysEx out: send frames in chunks small enough for the sequencer's buffer, and wait until they are drained.
+- Reader thread on `poll()` with a clean shutdown on close and dispose.
+- A clear error when `libasound` or `/dev/snd/seq` is missing; the app then offers only the simulator.
+
+**Exit criteria**
+
+- Unit tests cover chunk reassembly and port naming.
+- An integration test opens two sequencer ports wired to each other and round-trips SysEx frames up to the largest dump size. It runs in CI if the runner provides the `snd-seq` module, otherwise in the Linux VM under its own test category.
+- Zero IL2xxx/IL3xxx warnings.
+
+### P1.3 — Linux publish & AppImage
+
+Issue [#42](https://github.com/BoBoBaSs84/BB84.MPX1/issues/42).
+
+**Goal**: A downloadable Linux build.
+
+**Scope**
+
+- Native AOT publish for `linux-x64` on a Linux runner, including Avalonia's native libraries (SkiaSharp, HarfBuzzSharp).
+- `.desktop` file, application icon and AppStream metainfo, shared with P1.4.
+- AppImage built from the publish output.
+- `release.yml` builds Windows and Linux in a matrix and attaches the AppImage and its SHA-256 file to the GitHub Release.
+- The COM-001 check (no Lexicon documents or legacy binaries) runs on every artifact.
+- README: Linux download, MIDI setup and permissions (the user needs access to `/dev/snd/seq`).
+
+**Exit criteria**
+
+- A tag build attaches the AppImage.
+- The AppImage starts on a clean Linux VM without installing .NET.
+
+### P1.4 — Flatpak
+
+Issue [#43](https://github.com/BoBoBaSs84/BB84.MPX1/issues/43).
+
+**Goal**: A sandboxed Linux package.
+
+**Scope**
+
+- Flatpak manifest (application ID, freedesktop runtime, the AOT publish output from P1.3, metadata from P1.3).
+- Sandbox permissions: display (Wayland/X11) and access to the ALSA sequencer device. File access for `.syx` import/export through the portal.
+- Settings and the learned database inside the Flatpak's own XDG directories.
+- `release.yml` builds a `.flatpak` bundle and attaches it to the GitHub Release.
+
+Flathub submission is out of scope; it can follow once the bundle works.
+
+**Exit criteria**
+
+- The bundle installs with `flatpak install` on a clean Linux VM, sees the MIDI ports and talks to the simulator and to a real port.
+
+### P1.5 — Linux validation & release
+
+Issue [#44](https://github.com/BoBoBaSs84/BB84.MPX1/issues/44).
+
+**Goal**: Linux verified end to end and released.
+
+**Scope**
+
+- Manual check in the Linux VM: port enumeration and SysEx round-trip through a virtual MIDI port, for the AppImage and the Flatpak.
+- If a USB MIDI interface can be passed through to the VM: run the `Hardware` smoke suite against the MPX 1.
+- Update the README, the roadmap and spec section 9 with anything found.
+- Release with the Linux artifacts (a minor version, for example `v1.1.0`).
+
+**Exit criteria**
+
+- Session and integration tests pass on Linux.
+- Port enumeration and SysEx round-trip are verified manually on Linux.
+- The GitHub Release carries the Windows zip, the AppImage and the Flatpak bundle.
+
+## P2 — macOS support (post-1.0)
+
+**Goal**: Run on macOS. Starts after P1.
+
+### P2.1 — CoreMIDI transport & macOS CI
+
+**Scope**
+
+- CoreMIDI adapter (`BB84.MPX1.Midi.CoreMidi`) via `[LibraryImport]`: endpoint unique IDs as port IDs, an `UnmanagedCallersOnly` read callback, SysEx sends with completion.
+- CI matrix: build and test on `macos-latest`; a loopback test through CoreMIDI virtual endpoints.
+
+### P2.2 — macOS publish & app bundle
+
+**Scope**
+
+- Native AOT publishes for `osx-arm64` (and `osx-x64` only if it can be tested).
+- `.app` bundle, ad-hoc signed, attached to the GitHub Release. Users have to allow it in Gatekeeper; the README explains how.
+
+### P2.3 — Code signing & notarization (last)
+
+**Scope**
+
+- Developer ID signing and notarization. Needs an Apple Developer account, which the project does not have; this comes last.
+
+**Exit criteria (P2)**
+
+- Session and integration tests pass on macOS.
+- Port enumeration and SysEx round-trip are verified manually on macOS.
 
 ---
 

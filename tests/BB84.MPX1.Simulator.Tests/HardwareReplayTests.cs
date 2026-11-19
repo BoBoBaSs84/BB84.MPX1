@@ -171,6 +171,76 @@ public sealed class HardwareReplayTests
     }
 
     [TestMethod]
+    [Description("PRG-005, PRG-004, CON-007, SES-005: the recorded full restore with BUSY/READY yields a second backup identical to the first apart from unused effect-data bytes of presets")]
+    public async Task Replay_FullRestore()
+    {
+        var (replay, session) = await OpenAsync("full-restore.jsonl", TestContext.CancellationToken);
+        await using (replay)
+        await using (session)
+        {
+            ParameterDatabase database = await LoadCachedAsync(session);
+            ProgramLibrarian librarian = new(session, database);
+            IReadOnlyList<SystemDumpKind> kinds = librarian.AvailableDumps();
+            IReadOnlyList<Mpx1Message> first = await librarian.BackupAsync(kinds, cancellationToken: TestContext.CancellationToken);
+            byte[] file = SyxFile.Write(first);
+            RestorePlan plan = librarian.Plan(SyxFile.Read(file));
+
+            await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => librarian.RestoreAsync(plan, presetsConfirmed: false, cancellationToken: TestContext.CancellationToken));
+            IReadOnlyList<ushort> unset = await librarian.RestoreAsync(plan, presetsConfirmed: true, cancellationToken: TestContext.CancellationToken);
+            IReadOnlyList<Mpx1Message> second = await librarian.BackupAsync(kinds, cancellationToken: TestContext.CancellationToken);
+
+            Assert.IsTrue(replay.IsComplete);
+            Assert.IsEmpty(unset);
+            Assert.IsEmpty(plan.Warnings);
+            Assert.AreEqual(ProgramSlots.FirstUser, plan.PresetCount);
+            Assert.IsNotNull(plan.Database);
+            Assert.HasCount(4, plan.Dumps);
+            // Presets 1-138 read back with other values in effect-data bytes no parameter uses (spec 9, E19).
+            Assert.HasCount(first.Count, second);
+            int paddingOnly = 0;
+            foreach ((Mpx1Message before, Mpx1Message after) in first.Zip(second))
+            {
+                if (before.ToBytes().AsSpan().SequenceEqual(after.ToBytes()))
+                    continue;
+                ProgramDump b = (ProgramDump)before;
+                ProgramDump a = (ProgramDump)after;
+                Assert.IsTrue(ProgramSlots.IsPreset(b.ProgramNumber), $"Program {b.ProgramNumber}");
+                Assert.AreSequenceEqual(database.WithoutUnusedEffectBytes(b.Program).ToBytes(), database.WithoutUnusedEffectBytes(a.Program).ToBytes(), $"Program {b.ProgramNumber}");
+                paddingOnly++;
+            }
+            Assert.AreEqual(138, paddingOnly);
+        }
+    }
+
+    [TestMethod]
+    [Description("PRO-018: the recorded V1.00 sort-flag change of preset 1 is sent as a compensated Database Dump, reads back as written and is restored (spec 9, E18)")]
+    public async Task Replay_SortFlagsPresetChange()
+    {
+        var (replay, session) = await OpenAsync("sort-flags-preset-1.jsonl", TestContext.CancellationToken);
+        await using (replay)
+        await using (session)
+        {
+            ProgramLibrarian librarian = new(session, await LoadCachedAsync(session));
+            ProgramCategories[] original = [.. (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries];
+            ProgramCategories[] changed = [.. original];
+            changed[0] = original[0] with { Sources = original[0].Sources ^ SourceCategories.SoundFX };
+
+            IReadOnlyList<ushort> unsetChanged = await librarian.WriteDatabaseAsync(changed, TestContext.CancellationToken);
+            ProgramCategories afterChange = (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries[0];
+            IReadOnlyList<ushort> unsetRestored = await librarian.WriteDatabaseAsync(original, TestContext.CancellationToken);
+            ProgramCategories[] restored = [.. (await librarian.ReadDatabaseAsync(TestContext.CancellationToken)).Entries];
+
+            Assert.IsTrue(replay.IsComplete);
+            Assert.IsEmpty(unsetChanged);
+            Assert.IsEmpty(unsetRestored);
+            Assert.AreEqual(changed[0], afterChange);
+            Assert.AreSequenceEqual(original, restored);
+            // Bytes 98-99 of the table hold FF FF since the restore of issue #25 (programs 33 and 34).
+            Assert.AreSequenceEqual(new byte[] { 0xFF, 0xFF }, SortFlagTable.ToBytes(original)[98..100]);
+        }
+    }
+
+    [TestMethod]
     [Description("PRG-001: the recorded empty user program 249 is recognized from its Program Information")]
     public async Task Replay_ReadEmptySlot()
     {

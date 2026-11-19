@@ -106,7 +106,72 @@ public sealed class LibrarianTests
 
     [TestMethod]
     [DynamicData(nameof(Firmware.All), typeof(Firmware))]
-    [Description("AC-017, PRG-005, SES-005: backup, change, restore leaves the simulator byte-identical")]
+    [Description("PRO-018: writing sort flags the unit already holds sends nothing")]
+    public async Task WriteDatabase_Unchanged_SendsNothing(string firmware)
+    {
+        await using Rig rig = await CreateAsync(firmware);
+        IReadOnlyList<ProgramCategories> flags = rig.Simulator.Database;
+        rig.Sent.Clear();
+
+        IReadOnlyList<ushort> unset = await rig.Librarian.WriteDatabaseAsync(flags, TestContext.CancellationToken);
+
+        Assert.IsEmpty(unset);
+        Assert.IsFalse(rig.Sent.Any(m => m is DatabaseDump or ProgramDump));
+    }
+
+    [TestMethod]
+    [Description("PRO-018, PRG-001: on V1.00, changed user-program flags are written as Program Dumps, leaving the table bytes V1.00 cannot store alone (spec 9, E18)")]
+    public async Task WriteDatabase_V100_UserChange_UsesProgramDump()
+    {
+        await using Rig rig = await CreateAsync(Firmware.V100);
+        ProgramCategories[] flags = [.. rig.Simulator.Database];
+        ProgramCategories[] before = [.. flags];
+        flags[210] = new ProgramCategories(EffectCategories.Hall, SourceCategories.SoundFX);
+        rig.Sent.Clear();
+
+        IReadOnlyList<ushort> unset = await rig.Librarian.WriteDatabaseAsync(flags, TestContext.CancellationToken);
+
+        Assert.IsEmpty(unset);
+        Assert.AreSequenceEqual(flags, rig.Simulator.Database.ToArray());
+        Assert.AreEqual(flags[210], rig.Simulator.GetProgram(210).Categories);
+        Assert.IsFalse(rig.Sent.Any(m => m is DatabaseDump));
+        Assert.AreEqual(before[32], rig.Simulator.Database[32]);
+    }
+
+    [TestMethod]
+    [Description("PRO-018: on V1.00, changed preset flags are sent as a compensated Database Dump; only programs 33 and 34 may differ (spec 9, E18)")]
+    public async Task WriteDatabase_V100_PresetChange_Compensates()
+    {
+        await using Rig rig = await CreateAsync(Firmware.V100);
+        ProgramCategories[] flags = [.. rig.Simulator.Database];
+        flags[0] = new ProgramCategories(EffectCategories.Pitch | EffectCategories.Dual, SourceCategories.Drums);
+        flags[200] = new ProgramCategories(EffectCategories.Plate, SourceCategories.Vocal);
+
+        IReadOnlyList<ushort> unset = await rig.Librarian.WriteDatabaseAsync(flags, TestContext.CancellationToken);
+
+        Assert.AreSequenceEqual(SortFlagTable.UnwritableOnV100.ToArray(), unset.ToArray());
+        int[] differing = [.. Enumerable.Range(0, 250).Where(i => rig.Simulator.Database[i] != flags[i])];
+        Assert.AreSequenceEqual(new[] { 32, 33 }, differing);
+    }
+
+    [TestMethod]
+    [Description("PRO-018: on V1.10, changed sort flags are sent as one Database Dump and stored as sent")]
+    public async Task WriteDatabase_V110_SendsDatabaseDump()
+    {
+        await using Rig rig = await CreateAsync(Firmware.V110);
+        ProgramCategories[] flags = [.. Enumerable.Repeat(new ProgramCategories(EffectCategories.Delay, SourceCategories.Guitar), 250)];
+        rig.Sent.Clear();
+
+        IReadOnlyList<ushort> unset = await rig.Librarian.WriteDatabaseAsync(flags, TestContext.CancellationToken);
+
+        Assert.IsEmpty(unset);
+        Assert.AreSequenceEqual(flags, rig.Simulator.Database.ToArray());
+        Assert.AreEqual(1, rig.Sent.Count(m => m is DatabaseDump));
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(Firmware.All), typeof(Firmware))]
+    [Description("AC-017, PRG-005, SES-005: backup, change, restore leaves the simulator byte-identical, apart from the sort flags V1.00 cannot store")]
     public async Task BackupRestore_RoundTrip(string firmware)
     {
         await using Rig rig = await CreateAsync(firmware);
@@ -132,9 +197,17 @@ public sealed class LibrarianTests
         Assert.IsEmpty(plan.Warnings);
         await Assert.ThrowsExactlyAsync<PresetOverwriteException>(() => rig.Librarian.RestoreAsync(plan, presetsConfirmed: false, cancellationToken: TestContext.CancellationToken));
 
-        await rig.Librarian.RestoreAsync(plan, presetsConfirmed: true, cancellationToken: TestContext.CancellationToken);
+        IReadOnlyList<ushort> unset = await rig.Librarian.RestoreAsync(plan, presetsConfirmed: true, cancellationToken: TestContext.CancellationToken);
 
-        Assert.AreEqual(before, Snapshot(rig.Simulator));
+        // A V1.00 unit cannot take two table bytes from a Database Dump (spec section 9, E18).
+        if (firmware == Firmware.V100)
+            CollectionAssert.IsSubsetOf(unset.ToArray(), SortFlagTable.UnwritableOnV100.ToArray());
+        else
+            Assert.IsEmpty(unset);
+        ProgramCategories[] flags = [.. rig.Simulator.Database];
+        foreach (ushort number in unset)
+            flags[number] = plan.Database!.Entries[number];
+        Assert.AreEqual(before, SimulatorFixtureSerializer.Serialize(rig.Simulator.ToFixture()) + string.Join(",", flags));
         Assert.IsFalse(rig.Simulator.IsCrashed);
     }
 

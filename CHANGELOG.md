@@ -9,6 +9,14 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 - Reference material: Markdown extractions of the Rev0 (V1.00) Lexicon documents (MIDI implementation, user guide, presets, quick reference) in `legacy/`. They stay out of release builds. The specification now logs the V1.00/V1.10 differences found in them (spec section 9, E14–E17).
 - Simulator: a V1.00 device model, built at test time from the V1.00 learn recording (`FixtureBuilder`). It has the full control tree of the real unit and answers like it: no single active-setup address, and every stored setup reads as setup 1 (E13). The Librarian, front-panel and simulator tests now run against both V1.10 and V1.00, including fault injection and BUSY/READY, which the replay tests cannot cover.
 
+- Hardware tests for a full restore (back up, restore all programs, sort flags and system dumps, back up again, and compare byte by byte) and for a sort-flag change of a preset. Their recordings from a V1.00 unit are in `tests/data/hardware/v100` and replayed in the default test run. Programs are compared without the effect-data bytes no parameter uses, because a V1.00 unit reports varying values there for presets (spec section 9, E19; `ParameterDatabase.WithoutUnusedEffectBytes`). Diagnostic probes write programs or sort flags from a backup file; they run only when `MPX1_PROBE_BACKUP` or `MPX1_PROBE_USER_FLAGS` is set.
+
+### Fixed
+
+- **Restoring a backup or writing sort flags no longer scrambles the sort flags of programs 1–33 on firmware V1.00.** A V1.00 unit stores a received Database Dump shifted by 2 bytes in its first 100 bytes (spec section 9, E18). The Librarian now writes sort flags only when they differ from the unit's. On V1.00 it writes changed user programs as Program Dumps and shifts the Database Dump to make up for the offset. It reads the flags back after every write. The flags of programs 33 and 34 cannot always be written on V1.00; the status line names any program whose flags the unit did not take.
+- Restore now writes the sort flags last, after the programs and system dumps.
+- Simulator: user Program Dumps set the program's sort flags and Program Dump reads report the Database Dump's flags, as on the unit (E19). The V1.00 model stores a received Database Dump with the V1.00 offset.
+
 ### Changed
 
 - Simulator fixtures (schema version 2) declare their special cases: Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single-setup addresses. The simulator no longer assumes V1.10 type numbers. Schema 1 fixtures load with the V1.10 special cases.

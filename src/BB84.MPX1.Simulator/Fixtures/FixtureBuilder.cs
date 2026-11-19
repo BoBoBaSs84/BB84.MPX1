@@ -96,6 +96,7 @@ public static class FixtureBuilder
                 SoftRow = Single(SystemDumpKind.SoftRow)?.Type,
                 AllSetups = layout is null ? null : allSetups?.Type,
                 Setups = setups,
+                DatabaseReceiveOffset = SortFlagTable.HasReceiveOffset(configuration.MajorVersion, configuration.MinorVersion),
             },
         };
     }

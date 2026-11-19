@@ -185,6 +185,26 @@ public sealed class ParameterDatabase
         return ParameterBlockLayout.Create(parameters.Types, Describe, capacity);
     }
 
+    /// <summary>
+    /// Returns a copy of a program whose effect-data bytes after the loaded algorithm's parameters are zero. A V1.00
+    /// unit reports varying values in those bytes when a preset is read (spec section 9, E19); clear them before
+    /// comparing programs. Blocks without a known layout are kept as they are.
+    /// </summary>
+    /// <param name="program">The program.</param>
+    public ProgramData WithoutUnusedEffectBytes(ProgramData program)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        for (int block = 0; block < ProgramData.EffectBlockCount; block++)
+        {
+            if (Layout((EffectType)block, program.Algorithms[block]) is not { } layout || layout.UsedBytes >= ProgramData.EffectDataSize)
+                continue;
+            byte[] data = [.. program.EffectData[block]];
+            data.AsSpan(layout.UsedBytes).Clear();
+            program = program.WithEffectData(block, data);
+        }
+        return program;
+    }
+
     /// <summary>Returns the size of a parameter including its option bytes (PAR-002).</summary>
     /// <param name="type">The parameter type number.</param>
     public int ValueSize(ushort type)

@@ -93,6 +93,12 @@ public sealed record FixtureSpecials
 
     /// <summary>Gets the single-setup addresses behind the all-setups dump.</summary>
     public FixtureSetups? Setups { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether a received Database Dump is stored with the V1.00 first-block offset
+    /// (spec section 9, E18; <see cref="Core.Programs.SortFlagTable.ReceivedByV100"/>).
+    /// </summary>
+    public bool DatabaseReceiveOffset { get; init; }
 }
 
 /// <summary>The single-setup addresses in all-setups order (DMP-004).</summary>

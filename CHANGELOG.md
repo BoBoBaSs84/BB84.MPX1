@@ -25,6 +25,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ### Changed
 
+- Roadmap: post-1.0 platform work is split into Linux (P1.1–P1.5: groundwork and CI, ALSA sequencer transport, AppImage, Flatpak, validation and release) and macOS (P2.1–P2.3), with Linux first.
 - Simulator fixtures (schema version 2) declare their special cases: Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single-setup addresses. The simulator no longer assumes V1.10 type numbers. Schema 1 fixtures load with the V1.10 special cases.
 - **Program numbers match the front panel**: the app now numbers programs 1–250 like the MPX 1 display and the user guide (presets 1–200, user programs 201–250), instead of the protocol's 0–249. This applies to the Librarian list, status messages, confirmations, export file names, error messages and the Program tab's store box. The MIDI monitor still shows the protocol numbers it decodes from the wire.
 - MVVM source generation moved from CommunityToolkit.Mvvm to BB84.SourceGenerators. The app version, enum names and dispose code are now also generated at compile time. `ControlAddress` keeps its hand-written equality, because the generated version boxes the level array and enumerates it through LINQ on every dictionary lookup.

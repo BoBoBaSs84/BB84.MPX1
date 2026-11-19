@@ -90,11 +90,12 @@ public sealed class MidiPortCatalog(Func<IMidiTransport>? createHardware, Func<M
         }
         finally
         {
-            // Port listing is synchronous; avoid blocking on DisposeAsync when the transport can close synchronously.
+            // Port listing is synchronous and runs on the UI thread: close synchronously when the transport can,
+            // and never block on DisposeAsync. The listing transport was never opened, so a failed close changes nothing.
             if (transport is IDisposable disposable)
                 disposable.Dispose();
             else
-                transport?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                transport?.DisposeAsync().AsTask().Forget(static _ => { });
         }
         return result;
     }

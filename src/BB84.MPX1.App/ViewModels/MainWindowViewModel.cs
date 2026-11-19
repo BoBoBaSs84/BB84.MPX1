@@ -273,9 +273,9 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
         // The mirror polls the unit only while it is visible.
         FrontPanel.IsActive = value == FrontPanelTab;
         if (value == LibrarianTab)
-            _ = Librarian.EnsureLoadedAsync();
+            Librarian.EnsureLoadedAsync().Forget(ShowFailure);
         else if (value == SystemTab)
-            _ = System.EnsureLoadedAsync();
+            System.EnsureLoadedAsync().Forget(ShowFailure);
     }
 
     partial void OnIsMonitorVisibleChanged(bool value) => _settings = _settings with { MonitorVisible = value };
@@ -343,11 +343,11 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
         foreach (IDeviceTab tab in _deviceTabs)
             tab.Attach(connection, _time);
         if (SelectedTab == SystemTab)
-            _ = System.EnsureLoadedAsync();
+            System.EnsureLoadedAsync().Forget(ShowFailure);
         _settings = _settings with { LastDatabase = connection.Database!.Key };
         SaveSettings();
         if (SelectedTab == LibrarianTab)
-            _ = Librarian.EnsureLoadedAsync();
+            Librarian.EnsureLoadedAsync().Forget(ShowFailure);
         Learning.IsLearned = true;
         Learning.NeedsLearning = false;
         Learning.Status = status;
@@ -379,8 +379,10 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
     {
         // The unit reports front-panel and automation changes unprompted (SES-009); refresh what is on screen.
         if (e.Message is ParameterData data)
-            _dispatcher.Post(() => _ = Tree.OnDeviceChangedAsync(data.Address));
+            _dispatcher.Post(() => Tree.OnDeviceChangedAsync(data.Address).Forget(ShowFailure));
     }
+
+    private void ShowFailure(Exception exception) => StatusMessage = OperationStatus.Describe(exception);
 
     private void SaveSettings()
     {

@@ -16,6 +16,11 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 - **Restoring a backup or writing sort flags no longer scrambles the sort flags of programs 1–33 on firmware V1.00.** A V1.00 unit stores a received Database Dump shifted by 2 bytes in its first 100 bytes (spec section 9, E18). The Librarian now writes sort flags only when they differ from the unit's. On V1.00 it writes changed user programs as Program Dumps and shifts the Database Dump to make up for the offset. It reads the flags back after every write. The flags of programs 33 and 34 cannot always be written on V1.00; the status line names any program whose flags the unit did not take.
 - Restore now writes the sort flags last, after the programs and system dumps.
 - Simulator: user Program Dumps set the program's sort flags and Program Dump reads report the Database Dump's flags, as on the unit (E19). The V1.00 model stores a received Database Dump with the V1.00 offset.
+- Unexpected errors in background reads (front-panel polling, System tab sections, Librarian and System tab first loads, device-side parameter refreshes) now show on the status line instead of being lost silently.
+- Closing the window no longer crashes the app when closing the MIDI connection fails; the error goes to the trace log.
+- Sending SysEx over WinMM now waits for the driver's completion callback instead of polling every millisecond. On Windows each poll waited about 15 ms, so every frame was delayed.
+- Listing MIDI ports no longer blocks the UI thread on an asynchronous transport close.
+- The session stops its timeout timers once a response, BUSY or READY arrives, instead of leaving one running per request until the timeout runs out.
 
 ### Changed
 

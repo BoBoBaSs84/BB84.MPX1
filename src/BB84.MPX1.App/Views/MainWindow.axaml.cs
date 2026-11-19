@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 
 using Avalonia.Controls;
 
@@ -53,6 +54,11 @@ public sealed partial class MainWindow : Window
         try
         {
             await _viewModel.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            // The process is exiting; an exception here would crash it on the dispatcher instead.
+            Trace.TraceError($"Closing the MIDI connection failed: {ex}");
         }
         finally
         {

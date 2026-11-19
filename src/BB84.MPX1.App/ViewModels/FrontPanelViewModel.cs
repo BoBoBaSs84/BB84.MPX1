@@ -107,7 +107,7 @@ public sealed partial class FrontPanelViewModel : IDeviceTab, IDisposable
         Status = panel is null ? "The learned database has no Panel Button parameter." : "Click a button; right-click or press and hold to hold it.";
         _customCharacters = new byte[CustomCharacters.Size];
         if (IsAttached && IsActive)
-            _ = StartAsync();
+            StartAsync().Forget(ShowFailure);
     }
 
     void IDeviceTab.Attach(DeviceConnection connection, TimeProvider time) => Attach(connection.FrontPanel);
@@ -184,7 +184,7 @@ public sealed partial class FrontPanelViewModel : IDeviceTab, IDisposable
     partial void OnIsActiveChanged(bool value)
     {
         if (value && IsAttached)
-            _ = StartAsync();
+            StartAsync().Forget(ShowFailure);
         else
             StopPolling();
     }
@@ -210,8 +210,10 @@ public sealed partial class FrontPanelViewModel : IDeviceTab, IDisposable
         await RefreshAsync();
         StopPolling();
         if (IsActive && IsAttached && !_disposed)
-            _timer = _time.CreateTimer(_ => _dispatcher.Post(() => _ = RefreshAsync()), null, PollInterval, PollInterval);
+            _timer = _time.CreateTimer(_ => _dispatcher.Post(() => RefreshAsync().Forget(ShowFailure)), null, PollInterval, PollInterval);
     }
+
+    private void ShowFailure(Exception exception) => Status = OperationStatus.Describe(exception);
 
     private void StopPolling()
     {

@@ -3,6 +3,7 @@ using System.Diagnostics;
 
 using Avalonia.Controls;
 
+using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
 
 namespace BB84.MPX1.App.Views;
@@ -30,7 +31,7 @@ public sealed partial class MainWindow : Window
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = viewModel;
-        Opened += async (_, _) => await viewModel.InitializeAsync();
+        Opened += (_, _) => viewModel.InitializeAsync().Forget(ex => viewModel.StatusMessage = OperationStatus.Describe(ex));
         viewModel.Monitor.Entries.CollectionChanged += OnMonitorChanged;
     }
 

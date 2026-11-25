@@ -38,7 +38,7 @@ public sealed class FileParameterDatabaseStoreTests
     }
 
     [TestMethod]
-    [Description("LRN-004, SEC-002: a missing, corrupt or foreign cache file is treated as missing")]
+    [Description("LRN-004, SEC-002: a missing, corrupt (also null members) or foreign cache file is treated as missing")]
     public async Task TryLoad_ReturnsNullForMissingCorruptOrForeignFiles()
     {
         InMemoryFileSystem fs = new();
@@ -50,6 +50,10 @@ public sealed class FileParameterDatabaseStoreTests
         Assert.IsNull(await store.TryLoadAsync(Key, TestContext.CancellationToken));
 
         fs.Files[FilePath] = ParameterDatabaseSerializer.Serialize(Sample(Key with { BuildTime = "00:00:00" }));
+        Assert.IsNull(await store.TryLoadAsync(Key, TestContext.CancellationToken));
+
+        // Valid JSON with a null member (issue #48).
+        fs.Files[FilePath] = ParameterDatabaseSerializer.Serialize(Sample(Key)).Replace("\"descriptions\":[", "\"descriptions\":null,\"unused\":[", StringComparison.Ordinal);
         Assert.IsNull(await store.TryLoadAsync(Key, TestContext.CancellationToken));
     }
 }

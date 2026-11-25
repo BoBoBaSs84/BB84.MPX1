@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
@@ -146,6 +147,44 @@ public sealed class ParameterDatabaseTests
         Assert.ThrowsExactly<JsonException>(() => ParameterDatabaseSerializer.Deserialize("{\"schemaVersion\":99}"));
         Assert.ThrowsExactly<JsonException>(() => ParameterDatabaseSerializer.Deserialize(
             "{\"schemaVersion\":1,\"key\":{\"majorVersion\":1,\"minorVersion\":0,\"buildDate\":\"\",\"buildTime\":\"\"},\"descriptions\":[],\"nodes\":[{\"address\":[],\"type\":5}],\"gaps\":[]}"));
+    }
+
+    [TestMethod]
+    [Description("SEC-002: documents with missing or null members or array elements raise JsonException")]
+    [DataRow("key")]
+    [DataRow("descriptions")]
+    [DataRow("nodes")]
+    [DataRow("gaps")]
+    [DataRow("algorithms")]
+    [DataRow("descriptions[0]")]
+    [DataRow("descriptions[0].name")]
+    [DataRow("descriptions[0].units")]
+    [DataRow("descriptions[0].units[0]")]
+    [DataRow("nodes[0]")]
+    [DataRow("nodes[0].address")]
+    [DataRow("gaps[]")]
+    [DataRow("algorithms[]")]
+    [DataRow("missing descriptions")]
+    public void Serializer_RejectsNullMembers(string member)
+    {
+        JsonObject document = JsonNode.Parse(ParameterDatabaseSerializer.Serialize(SampleBuilder().Build()))!.AsObject();
+        JsonObject description = document["descriptions"]![0]!.AsObject();
+        JsonObject node = document["nodes"]![0]!.AsObject();
+        switch (member)
+        {
+            case "descriptions[0]": document["descriptions"]![0] = null; break;
+            case "descriptions[0].name": description["name"] = null; break;
+            case "descriptions[0].units": description["units"] = null; break;
+            case "descriptions[0].units[0]": description["units"]![0] = null; break;
+            case "nodes[0]": document["nodes"]![0] = null; break;
+            case "nodes[0].address": node["address"] = null; break;
+            case "gaps[]": document["gaps"] = new JsonArray((JsonNode?)null); break;
+            case "algorithms[]": document["algorithms"] = new JsonArray((JsonNode?)null); break;
+            case "missing descriptions": document.Remove("descriptions"); break;
+            default: document[member] = null; break;
+        }
+
+        Assert.ThrowsExactly<JsonException>(() => ParameterDatabaseSerializer.Deserialize(document.ToJsonString()));
     }
 
     [TestMethod]

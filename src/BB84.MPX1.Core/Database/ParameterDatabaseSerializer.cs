@@ -33,7 +33,7 @@ public static class ParameterDatabaseSerializer
 
     /// <summary>Deserializes a database. Treat the input as untrusted (SEC-002).</summary>
     /// <param name="json">The JSON text.</param>
-    /// <exception cref="JsonException">The JSON is invalid or uses an unknown schema.</exception>
+    /// <exception cref="JsonException">The JSON is invalid, misses members, or uses an unknown schema.</exception>
     public static ParameterDatabase Deserialize(string json)
     {
         DatabaseDocument document = JsonSerializer.Deserialize(json, CoreJsonContext.Default.DatabaseDocument)
@@ -41,27 +41,28 @@ public static class ParameterDatabaseSerializer
         if (document.SchemaVersion != SchemaVersion)
             throw new JsonException($"Unsupported database schema version {document.SchemaVersion}.");
 
-        DeviceId device = new(0);
-        ParameterDatabaseBuilder builder = new(document.Key);
-        foreach (DescriptionDocument d in document.Descriptions)
-        {
-            builder.AddDescription(new ParameterDescription(device, d.Type, d.Name, d.Size, (ParameterAttributes)d.Attributes, d.OptionType,
-                [.. d.Units.Select(u => new UnitLimit(u.Minimum, u.Maximum, u.DisplayUnits))]));
-        }
-        foreach (NodeDocument node in document.Nodes)
-            builder.AddNode(ControlAddress.From(node.Address), node.Type);
-        foreach (ushort[] gap in document.Gaps)
-            builder.AddGap(ControlAddress.From(gap));
-        foreach (AlgorithmDocument a in document.Algorithms)
-            builder.AddAlgorithm(new AlgorithmParameters((EffectType)a.Effect, a.Algorithm, a.Name, [.. a.Types]));
-
         try
         {
+            DeviceId device = new(0);
+            ParameterDatabaseBuilder builder = new(document.Key);
+            foreach (DescriptionDocument d in document.Descriptions)
+            {
+                builder.AddDescription(new ParameterDescription(device, d.Type, d.Name ?? throw new JsonException($"Parameter type 0x{d.Type:X4} has no name."), d.Size, (ParameterAttributes)d.Attributes, d.OptionType,
+                    [.. d.Units.Select(u => new UnitLimit(u.Minimum, u.Maximum, u.DisplayUnits))]));
+            }
+            foreach (NodeDocument node in document.Nodes)
+                builder.AddNode(ControlAddress.From(node.Address), node.Type);
+            foreach (ushort[] gap in document.Gaps)
+                builder.AddGap(ControlAddress.From(gap));
+            foreach (AlgorithmDocument a in document.Algorithms)
+                builder.AddAlgorithm(new AlgorithmParameters((EffectType)a.Effect, a.Algorithm, a.Name, [.. a.Types]));
             return builder.Build();
         }
-        catch (InvalidOperationException ex)
+        // The generated serializer leaves missing or null members and array elements null; a document like that is
+        // corrupt, not a programming error, so it is reported like any other corrupt document (SEC-002).
+        catch (Exception ex) when (ex is ArgumentException or NullReferenceException or InvalidOperationException)
         {
-            throw new JsonException(ex.Message, ex);
+            throw new JsonException($"The database document is invalid: {ex.Message}", ex);
         }
     }
 }

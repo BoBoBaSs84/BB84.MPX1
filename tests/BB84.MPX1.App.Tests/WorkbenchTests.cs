@@ -5,6 +5,7 @@ using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels;
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
+using BB84.MPX1.Core.Programs;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
 using BB84.MPX1.Midi.Learning;
@@ -131,6 +132,27 @@ public sealed class WorkbenchTests
 
         Assert.IsEmpty(sent.OfType<ParameterData>(), "No Parameter Data frame may be sent.");
         Assert.IsFalse(Simulator.IsCrashed);
+    }
+
+    [TestMethod]
+    [Description("LRN-008: the open page is rebuilt when another program is sent to the active program")]
+    public async Task SendToActive_RebuildsOpenPage()
+    {
+        await using MainWindowViewModel vm = await ConnectAndLearnAsync(CreateViewModel());
+        Assert.AreEqual(MainWindowViewModel.ParametersTab, vm.SelectedTab);
+
+        ParameterPageViewModel page = await OpenAsync(vm, "Program", "Pitch", "no effect");
+        Assert.IsTrue(page.Parameters.Single(p => p.Name == "Mix").IsEditable);
+
+        // Load Detune (M) (algorithm 1) into the Pitch block: "no effect" is no longer loaded.
+        ProgramData active = Simulator.ActiveProgram;
+        await vm.Connection!.Librarian!.SendToActiveAsync(active with { Algorithms = active.Algorithms.SetItem(0, 1) }, TestContext.CancellationToken);
+
+        ParameterPageViewModel rebuilt = vm.Tree.Page!;
+        Assert.AreNotSame(page, rebuilt);
+        await rebuilt.Loading;
+        Assert.IsFalse(rebuilt.IsStale);
+        Assert.IsFalse(rebuilt.Parameters.Single(p => p.Name == "Mix").IsEditable);
     }
 
     [TestMethod]

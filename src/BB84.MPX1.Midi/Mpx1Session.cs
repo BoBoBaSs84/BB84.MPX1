@@ -25,6 +25,7 @@ public sealed class Mpx1Session : IAsyncDisposable
     private long _lastSendTimestamp;
     private bool _hasSent;
     private int _disposed;
+    private long _activeProgramChanges;
 
     /// <summary>Initializes a new instance of the <see cref="Mpx1Session"/> class.</summary>
     /// <param name="transport">An open transport.</param>
@@ -54,6 +55,16 @@ public sealed class Mpx1Session : IAsyncDisposable
                 return _readyGate is not null;
         }
     }
+
+    /// <summary>
+    /// Gets how often the active program may have changed since the session started: a Program Dump sent to the
+    /// active program, a Program Change received, or <see cref="NoteActiveProgramChanged"/>. Compare two readings to
+    /// know whether the active program's algorithms must be read again (LRN-008).
+    /// </summary>
+    public long ActiveProgramChanges => Interlocked.Read(ref _activeProgramChanges);
+
+    /// <summary>Raised when <see cref="ActiveProgramChanges"/> grows.</summary>
+    public event EventHandler<EventArgs>? ActiveProgramChanged;
 
     /// <summary>Raised for every SysEx frame sent or received (UI-009).</summary>
     public event EventHandler<FrameEventArgs>? FrameTraffic;
@@ -166,6 +177,8 @@ public sealed class Mpx1Session : IAsyncDisposable
         try
         {
             await SendFrameAsync(frame, message, cancellationToken).ConfigureAwait(false);
+            if (message is ProgramDump { ProgramNumber: Request.ActiveProgram })
+                NoteActiveProgramChanged();
             _ = await CompletesWithinAsync(busyObserved.Task, Options.GetBusyWait(frame.Length), cancellationToken).ConfigureAwait(false);
             await WaitUntilReadyAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -216,6 +229,16 @@ public sealed class Mpx1Session : IAsyncDisposable
 
         SystemConfiguration configuration = await RequestAsync<SystemConfiguration>(Request.SystemConfiguration(Device), cancellationToken).ConfigureAwait(false);
         return new DeviceVersion(configuration.MajorVersion, configuration.MinorVersion, identity, configuration);
+    }
+
+    /// <summary>
+    /// Records that the active program may have changed, for example after a front-panel press that can load a
+    /// program, and raises <see cref="ActiveProgramChanged"/>.
+    /// </summary>
+    public void NoteActiveProgramChanged()
+    {
+        Interlocked.Increment(ref _activeProgramChanges);
+        Raise(ActiveProgramChanged, EventArgs.Empty);
     }
 
     /// <summary>Stops the receive loop and cancels calls that are still waiting. Safe to call more than once.</summary>
@@ -363,6 +386,9 @@ public sealed class Mpx1Session : IAsyncDisposable
                 HandleFrame(sysEx);
                 break;
             case ShortInput shortInput:
+                // A Program Change on any channel may load another program on the unit.
+                if ((shortInput.Message & 0xF0) == 0xC0)
+                    NoteActiveProgramChanged();
                 Raise(ShortMessageReceived, new ShortMessageEventArgs(shortInput.Timestamp, shortInput.Message));
                 break;
         }

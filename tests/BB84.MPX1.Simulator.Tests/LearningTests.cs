@@ -255,6 +255,34 @@ public sealed class LearningTests
     }
 
     [TestMethod]
+    [Description("LRN-008: after a program is sent to the active program, the guard reads the algorithms again")]
+    public async Task Editor_BlocksAlgorithmUnloadedBySendToActive()
+    {
+        var (session, simulator, sent) = await CreateAsync();
+        await using (session)
+        await using (simulator)
+        {
+            ParameterDatabase db = await new ParameterLearner(session).LoadOrLearnAsync(cancellationToken: TestContext.CancellationToken);
+            ParameterEditor editor = new(session, db);
+            ControlAddress mix = db.FindByPath("Program", "Pitch", "no effect", "Mix")!.Address;
+
+            // Pitch "no effect" (algorithm 0) is loaded: the write goes through and primes the cached algorithms.
+            await editor.WriteValueAsync(mix, 50, cancellationToken: TestContext.CancellationToken);
+
+            // Load Detune (M) (algorithm 1) into the Pitch block of the active program.
+            ProgramData active = simulator.ActiveProgram;
+            await session.SendAsync(new ProgramDump(Device, Request.ActiveProgram, active with { Algorithms = active.Algorithms.SetItem(0, 1) }), TestContext.CancellationToken);
+            sent.Clear();
+
+            await Assert.ThrowsExactlyAsync<UnloadedAlgorithmException>(
+                () => editor.WriteValueAsync(mix, 60, cancellationToken: TestContext.CancellationToken));
+
+            Assert.DoesNotContain(m => m is ParameterData, sent);
+            Assert.IsFalse(simulator.IsCrashed);
+        }
+    }
+
+    [TestMethod]
     [Description("PAR-001, PAR-002, PAR-003: read value and display text, write value")]
     public async Task Editor_ReadAndWrite()
     {

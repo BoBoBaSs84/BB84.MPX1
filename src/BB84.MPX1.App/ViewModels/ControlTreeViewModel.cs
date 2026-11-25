@@ -63,11 +63,23 @@ public sealed partial class ControlTreeViewModel : IDeviceTab
     /// <param name="address">The control address.</param>
     public Task OnDeviceChangedAsync(ControlAddress address) => Page?.OnDeviceChangedAsync(address) ?? Task.CompletedTask;
 
-    partial void OnSelectedNodeChanged(ControlNodeViewModel? value)
+    /// <summary>
+    /// Reopens the page when the active program may have changed since it opened, so that parameters of algorithms
+    /// that are no longer loaded become read-only (LRN-008).
+    /// </summary>
+    public void RefreshIfStale()
+    {
+        if (Page is { IsStale: true })
+            OpenPage(SelectedNode);
+    }
+
+    partial void OnSelectedNodeChanged(ControlNodeViewModel? value) => OpenPage(value);
+
+    private void OpenPage(ControlNodeViewModel? node)
     {
         Page?.Dispose();
-        Page = value is not null && _session is not null && _editor is not null
-            ? ParameterPageViewModel.Open(value.Node, _session, _editor, _time)
+        Page = node is not null && _session is not null && _editor is not null
+            ? ParameterPageViewModel.Open(node.Node, _session, _editor, _time)
             : null;
     }
 }

@@ -15,12 +15,16 @@ namespace BB84.MPX1.App.ViewModels;
 public sealed partial class ParameterPageViewModel : IDisposable
 {
     private readonly CancellationTokenSource _cancel = new();
+    private readonly Mpx1Session _session;
+    private readonly long _activeProgramChanges;
     private bool _closed;
 
-    private ParameterPageViewModel(ControlTreeNode node)
+    private ParameterPageViewModel(ControlTreeNode node, Mpx1Session session)
     {
         Node = node;
         Title = PathOf(node);
+        _session = session;
+        _activeProgramChanges = session.ActiveProgramChanges;
     }
 
     /// <summary>Gets the control level.</summary>
@@ -42,6 +46,14 @@ public sealed partial class ParameterPageViewModel : IDisposable
     /// <summary>Gets or sets a value indicating whether values are being read.</summary>
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// Gets a value indicating whether the page shows effect-algorithm parameters and the active program may have
+    /// changed since it opened, so its read-only marks (LRN-008) may be wrong.
+    /// </summary>
+    public bool IsStale => DependsOnActiveAlgorithms && _session.ActiveProgramChanges != _activeProgramChanges;
+
+    private bool DependsOnActiveAlgorithms => Node.Address.Depth >= 2 && Node.Address[0] == 0;
+
     /// <summary>Gets the task that reads all values, for tests.</summary>
     public Task Loading { get; private set; } = Task.CompletedTask;
 
@@ -52,7 +64,8 @@ public sealed partial class ParameterPageViewModel : IDisposable
     /// <param name="time">Time source for live writes.</param>
     public static ParameterPageViewModel Open(ControlTreeNode node, Mpx1Session session, ParameterEditor editor, TimeProvider time)
     {
-        ParameterPageViewModel page = new(node);
+        ArgumentNullException.ThrowIfNull(session);
+        ParameterPageViewModel page = new(node, session);
         page.Loading = page.LoadAsync(session, editor, time, page._cancel.Token);
         return page;
     }
@@ -84,7 +97,7 @@ public sealed partial class ParameterPageViewModel : IDisposable
         try
         {
             // The LRN-008 guard needs the algorithms that are loaded right now; they may have changed on the unit.
-            IReadOnlyList<byte> algorithms = Node.Address.Depth >= 2 && Node.Address[0] == 0
+            IReadOnlyList<byte> algorithms = DependsOnActiveAlgorithms
                 ? await editor.RefreshActiveAlgorithmsAsync(cancellationToken)
                 : [];
             ParameterContext context = new(session, editor, algorithms, time);

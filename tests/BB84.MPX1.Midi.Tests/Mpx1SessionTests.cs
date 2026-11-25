@@ -184,6 +184,47 @@ public sealed class Mpx1SessionTests
     }
 
     [TestMethod]
+    [Description("LRN-008: a Program Dump sent to the active program counts as an active-program change; one sent to a slot does not")]
+    public async Task SendAsync_ProgramDumpToActive_CountsActiveProgramChange()
+    {
+        var (session, device, _) = await CreateAsync(_ => Nothing);
+        await using (session)
+        await using (device)
+        {
+            int raised = 0;
+            session.ActiveProgramChanged += (_, _) => Interlocked.Increment(ref raised);
+
+            await session.SendAsync(new ProgramDump(Device, 200, TestProgram()), TestContext.CancellationToken);
+            Assert.AreEqual(0L, session.ActiveProgramChanges);
+
+            await session.SendAsync(new ProgramDump(Device, Request.ActiveProgram, TestProgram()), TestContext.CancellationToken);
+            Assert.AreEqual(1L, session.ActiveProgramChanges);
+            Assert.AreEqual(1, raised);
+        }
+    }
+
+    [TestMethod]
+    [Description("LRN-008: a received Program Change counts as an active-program change")]
+    public async Task ProgramChangeReceived_CountsActiveProgramChange()
+    {
+        (LoopbackMidiTransport left, LoopbackMidiTransport right) = LoopbackMidiTransport.CreatePair();
+        await left.OpenAsync(LoopbackMidiTransport.Port.Id, LoopbackMidiTransport.Port.Id, TestContext.CancellationToken);
+        await right.OpenAsync(LoopbackMidiTransport.Port.Id, LoopbackMidiTransport.Port.Id, TestContext.CancellationToken);
+        await using Mpx1Session session = new(left, Device, FastOptions);
+        TaskCompletionSource changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.ActiveProgramChanged += (_, _) => changed.TrySetResult();
+        session.Start();
+
+        // Note On first: not a program change.
+        await right.SendShortAsync(0x00403C90, TestContext.CancellationToken);
+        // Program Change to program 5 on channel 3.
+        await right.SendShortAsync(0x000005C2, TestContext.CancellationToken);
+
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken);
+        Assert.AreEqual(1L, session.ActiveProgramChanges);
+    }
+
+    [TestMethod]
     [Description("SES-006")]
     public async Task PingAsync_ReturnsTrueWhenDeviceAnswers()
     {

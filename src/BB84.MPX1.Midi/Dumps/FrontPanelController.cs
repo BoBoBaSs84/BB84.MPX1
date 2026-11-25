@@ -76,8 +76,12 @@ public sealed class FrontPanelController
     /// <summary>Sends one raw Panel Button code (for example the V1.10 Tap or A/B toggle).</summary>
     /// <param name="code">The code.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task SendAsync(byte code, CancellationToken cancellationToken = default)
-        => _session.SendAsync(new ParameterData(_session.Device, new[] { code }, _button.Address), cancellationToken);
+    public async Task SendAsync(byte code, CancellationToken cancellationToken = default)
+    {
+        await _session.SendAsync(new ParameterData(_session.Device, new[] { code }, _button.Address), cancellationToken).ConfigureAwait(false);
+        // Any press or turn may load another program; the LRN-008 guard must read the algorithms again.
+        _session.NoteActiveProgramChanged();
+    }
 
     /// <summary>Reads the display and LED dumps (DMP-001, DMP-002).</summary>
     /// <param name="cancellationToken">Cancellation token.</param>

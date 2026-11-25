@@ -45,24 +45,20 @@ public sealed class ParameterEditor(Mpx1Session session, ParameterDatabase datab
 {
     private readonly Mpx1Session _session = session ?? throw new ArgumentNullException(nameof(session));
     private byte[]? _activeAlgorithms;
+    private long _algorithmsReadAt;
 
     /// <summary>Gets the learned database.</summary>
     public ParameterDatabase Database { get; } = database ?? throw new ArgumentNullException(nameof(database));
-
-    /// <summary>
-    /// Sets the active program's algorithm numbers (Pitch through Delay) used by the LRN-008 guard, for example
-    /// after loading a program. Pass <see langword="null"/> to force a refresh on the next write.
-    /// </summary>
-    /// <param name="algorithms">Six algorithm numbers, or <see langword="null"/>.</param>
-    public void SetActiveAlgorithms(ReadOnlySpan<byte> algorithms)
-        => _activeAlgorithms = algorithms.IsEmpty ? null : algorithms.ToArray();
 
     /// <summary>Reads the active program's algorithm numbers from the device.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<byte>> RefreshActiveAlgorithmsAsync(CancellationToken cancellationToken = default)
     {
+        // Read the counter first: a change while the dump is in flight forces another refresh on the next write.
+        long changes = _session.ActiveProgramChanges;
         ProgramDump active = await _session.RequestAsync<ProgramDump>(Request.ProgramDump(_session.Device, Request.ActiveProgram), cancellationToken).ConfigureAwait(false);
         _activeAlgorithms = [.. active.Program.Algorithms];
+        _algorithmsReadAt = changes;
         return _activeAlgorithms;
     }
 
@@ -110,7 +106,10 @@ public sealed class ParameterEditor(Mpx1Session session, ParameterDatabase datab
         if (string.Equals(node.Name, "MIDI Speed", StringComparison.OrdinalIgnoreCase) && (data.Length < 1 || !MidiSpeed.IsValid(data.Span[0])))
             throw new ArgumentOutOfRangeException(nameof(data), "MIDI Speed accepts only 0x01, 0x02, 0x04 and 0x40.");
 
-        byte[] algorithms = _activeAlgorithms ?? [.. await RefreshActiveAlgorithmsAsync(cancellationToken).ConfigureAwait(false)];
+        // The active program may have changed since the algorithms were read (Send to active, Program Change, front panel).
+        byte[] algorithms = _activeAlgorithms is { } known && _algorithmsReadAt == _session.ActiveProgramChanges
+            ? known
+            : [.. await RefreshActiveAlgorithmsAsync(cancellationToken).ConfigureAwait(false)];
         if (KnownBugs.IsUnloadedAlgorithmParameter(address, algorithms))
         {
             string algorithm = node.Parent?.Name ?? "this algorithm";

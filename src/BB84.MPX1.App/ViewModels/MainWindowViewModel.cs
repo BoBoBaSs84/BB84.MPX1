@@ -178,6 +178,7 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
             _connection = await DeviceConnection.ConnectAsync(transport, input.Port.Id, output.Port.Id, device,
                 _settings.ToSessionOptions(), _databaseStore, Monitor.Record);
             _connection.Session.UnsolicitedMessage += OnUnsolicitedMessage;
+            _connection.Session.ActiveProgramChanged += OnActiveProgramChanged;
 
             DatabaseKey key = _connection.DatabaseKey;
             Firmware = $"{_connection.Version} ({key.BuildDate} {key.BuildTime})";
@@ -272,7 +273,9 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
     {
         // The mirror polls the unit only while it is visible.
         FrontPanel.IsActive = value == FrontPanelTab;
-        if (value == LibrarianTab)
+        if (value == ParametersTab)
+            Tree.RefreshIfStale();
+        else if (value == LibrarianTab)
             Librarian.EnsureLoadedAsync().Forget(ShowFailure);
         else if (value == SystemTab)
             System.EnsureLoadedAsync().Forget(ShowFailure);
@@ -361,6 +364,7 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
         {
             _connection = null;
             connection.Session.UnsolicitedMessage -= OnUnsolicitedMessage;
+            connection.Session.ActiveProgramChanged -= OnActiveProgramChanged;
             await connection.DisposeAsync();
         }
         IsConnected = false;
@@ -381,6 +385,14 @@ public sealed partial class MainWindowViewModel : IAsyncDisposable
         if (e.Message is ParameterData data)
             _dispatcher.Post(() => Tree.OnDeviceChangedAsync(data.Address).Forget(ShowFailure));
     }
+
+    // Pages on other tabs are refreshed when the Parameters tab is shown again (OnSelectedTabChanged).
+    private void OnActiveProgramChanged(object? sender, EventArgs e)
+        => _dispatcher.Post(() =>
+        {
+            if (SelectedTab == ParametersTab)
+                Tree.RefreshIfStale();
+        });
 
     private void ShowFailure(Exception exception) => StatusMessage = OperationStatus.Describe(exception);
 

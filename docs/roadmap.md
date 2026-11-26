@@ -20,7 +20,7 @@ Delivery plan for the clean-room Lexicon MPX 1 SysEx editor. Requirement IDs ref
 | M9   | Release 1.0                             | M7 (M8 if hardware is available) | Done         |
 | P1   | Linux support (post-1.0)                | M9                               | Planned      |
 | P1.1 | Linux groundwork & CI                   | M9                               | In progress  |
-| P1.2 | ALSA sequencer transport                | P1.1                             | Planned      |
+| P1.2 | ALSA sequencer transport                | P1.1                             | In progress  |
 | P1.3 | Linux publish & AppImage                | P1.1                             | Planned      |
 | P1.4 | Flatpak                                 | P1.2, P1.3                       | Planned      |
 | P1.5 | Linux validation & release              | P1.2, P1.3, P1.4                 | Planned      |

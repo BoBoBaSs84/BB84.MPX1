@@ -9,16 +9,6 @@ public sealed class WinMMMidiTransportTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    [Description("TRN-006: duplicate device names get stable, unique IDs")]
-    public void ToPorts_MakesDuplicateNamesUnique()
-    {
-        IReadOnlyList<MidiPortInfo> ports = WinMMMidiTransport.ToPorts(["USB MIDI", "Synth", "USB MIDI", "USB MIDI"]);
-
-        Assert.AreSequenceEqual(
-            new[] { "USB MIDI", "Synth", "USB MIDI (2)", "USB MIDI (3)" }, ports.Select(p => p.Id.Value).ToArray());
-    }
-
-    [TestMethod]
     [Description("TRN-002, TRN-006: enumeration works with any number of devices")]
     public async Task GetPorts_DoesNotThrow()
     {

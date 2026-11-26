@@ -6,7 +6,8 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ### Added
 
-- **Linux build and tests** (#40). The solution now builds and its tests pass on Linux, and CI builds and tests on both Windows and Linux. On Linux the app offers only the simulator until a Linux MIDI transport is added. Its settings and learned databases follow the XDG directories (`~/.config/BB84.MPX1`, `~/.local/share/BB84.MPX1`). The WinMM tests skip themselves outside Windows.
+- **MIDI on Linux** (#41): the app now talks to MIDI ports on Linux through the ALSA sequencer. Ports are listed as `client:port`, including USB MIDI interfaces and software ports such as PipeWire bridges. It needs `libasound2` and access to `/dev/snd/seq`; without them the app offers only the simulator, as before.
+- **Linux build and tests** (#40). The solution now builds and its tests pass on Linux, and CI builds and tests on both Windows and Linux. On Linux its settings and learned databases follow the XDG directories (`~/.config/BB84.MPX1`, `~/.local/share/BB84.MPX1`). The WinMM tests skip themselves outside Windows.
 - `build/package.ps1` takes a `-Runtime` parameter: `win-x64` (the default) or `linux-x64`.
 
 - Reference material: Markdown extractions of the Rev0 (V1.00) Lexicon documents (MIDI implementation, user guide, presets, quick reference) in `legacy/`. They stay out of release builds. The specification now logs the V1.00/V1.10 differences found in them (spec section 9, E14–E17).
@@ -31,6 +32,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ### Changed
 
+- Internal: the WinMM and ALSA adapters share one port-name helper (`MidiPortNames`); the spec adds TRN-008 for the ALSA transport.
 - Specification: CON-001, AC-018 and the CI/CD section list the supported runtime identifiers (`win-x64`, `linux-x64`) and the Windows/Linux CI matrix.
 - Roadmap: post-1.0 platform work is split into Linux (P1.1–P1.5: groundwork and CI, ALSA sequencer transport, AppImage, Flatpak, validation and release) and macOS (P2.1–P2.3), with Linux first.
 - Simulator fixtures (schema version 2) declare their special cases: Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single-setup addresses. The simulator no longer assumes V1.10 type numbers. Schema 1 fixtures load with the V1.10 special cases.

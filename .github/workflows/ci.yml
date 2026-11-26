@@ -39,6 +39,17 @@ jobs:
       - name: Build solution
         run: dotnet build ${{ env.SOLUTION }} --configuration ${{ env.CONFIGURATION }} --no-restore
 
+      # The ALSA loopback tests need the sequencer and its Midi Through port; without them they are inconclusive.
+      - name: Load ALSA sequencer (best effort)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          if sudo apt-get install -y -qq libasound2t64 "linux-modules-extra-$(uname -r)" && sudo modprobe snd-seq-dummy; then
+            sudo chmod a+rw /dev/snd/seq
+          else
+            echo "ALSA sequencer unavailable; the Alsa tests will be inconclusive."
+          fi
+
       # Exit code 8 = no tests found; allowed while projects are still empty.
       # Hardware tests need a real MPX 1 and never run in CI.
       - name: Run tests

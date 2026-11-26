@@ -28,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BB84.MPX1.Core\BB84.MPX1.Core.csproj" />
     <ProjectReference Include="..\BB84.MPX1.Midi\BB84.MPX1.Midi.csproj" />
+    <ProjectReference Include="..\BB84.MPX1.Midi.Alsa\BB84.MPX1.Midi.Alsa.csproj" />
     <ProjectReference Include="..\BB84.MPX1.Midi.WinMM\BB84.MPX1.Midi.WinMM.csproj" />
     <ProjectReference Include="..\BB84.MPX1.Simulator\BB84.MPX1.Simulator.csproj" />
   </ItemGroup>

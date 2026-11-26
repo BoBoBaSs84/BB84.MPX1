@@ -4,6 +4,10 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ## Unreleased
 
+## 1.1.0-rc.1 - 2026-11-26
+
+Release candidate for 1.1.0, the first release with Linux support: MIDI through the ALSA sequencer, and Linux x64 downloads as an AppImage and a Flatpak bundle. It is published to validate the Linux packages; Linux has been tested against the simulator only, not yet with a real MPX 1.
+
 ### Added
 
 - **Linux download** (#42): releases now include `BB84.MPX1-<version>-x86_64.AppImage` with its SHA-256 file, next to the Windows zip. It is a Native AOT build and needs no .NET. It brings a desktop entry, AppStream metainfo and an icon. It needs `fusermount`, `libasound2` and access to `/dev/snd/seq`; the README explains the setup. CI now also runs the Native AOT publish on Linux.

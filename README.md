@@ -4,7 +4,7 @@
 
 A SysEx editor and librarian for the **Lexicon MPX 1** multi-effects processor (firmware V1.00 and V1.10). It replaces the 1998 16-bit editor, which no longer runs on 64-bit Windows.
 
-BB84.MPX1 is a clean-room implementation, written from Lexicon's published MIDI Implementation document only. It is a single native Windows x64 executable (.NET 10 Native AOT, Avalonia UI), and you don't need to install .NET.
+BB84.MPX1 is a clean-room implementation, written from Lexicon's published MIDI Implementation document only. It is a native executable for Windows x64 and Linux x64 (.NET 10 Native AOT, Avalonia UI), and you don't need to install .NET.
 
 ![Parameter editing](docs/images/parameters.png)
 
@@ -119,6 +119,8 @@ The architecture, protocol details and requirements are in [the specification](s
 ## Status
 
 Validated on a real MPX 1 with firmware V1.00 (roadmap M8): learn, program read and write, full backup, and system dump write-back. V1.10 has been tested against the simulator only. If you own a V1.10 unit and can test, reports are welcome.
+
+Linux support (the AppImage and the Flatpak) is in a release candidate (1.1.0-rc.1), published for testing. On Linux the app has not yet been tested with a real MPX 1.
 
 ## Legal
 

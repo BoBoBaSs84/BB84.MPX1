@@ -24,12 +24,16 @@ public sealed class ParameterPageTests
     [TestCleanup]
     public void Cleanup() => File.Delete(_settingsPath);
 
-    private async Task<MainWindowViewModel> OpenPageAsync(params string[] path)
+    private Task<MainWindowViewModel> OpenPageAsync(params string[] path) => OpenPageAsync(closeTransport: false, path);
+
+    private async Task<MainWindowViewModel> OpenPageAsync(bool closeTransport, params string[] path)
     {
         MidiPortCatalog catalog = new(createHardware: null,
             createSimulator: () => _created.Value = new Mpx1Simulator(options: new SimulatorOptions { BusyDuration = TimeSpan.FromMilliseconds(1) }));
         MainWindowViewModel vm = new(catalog, new SettingsStore(_settingsPath), new InMemoryParameterDatabaseStore(), new ImmediateDispatcher(), new FakeDialogs(), TimeProvider.System);
         await WorkbenchTests.ConnectAndLearnAsync(vm);
+        if (closeTransport)
+            await Simulator.CloseAsync();
 
         IEnumerable<ControlNodeViewModel> level = vm.Tree.Roots;
         ControlNodeViewModel? node = null;
@@ -52,5 +56,26 @@ public sealed class ParameterPageTests
         await reload;
 
         Assert.IsNull(vm.Tree.Page);
+    }
+
+    [TestMethod]
+    [Description("PAR-001: a MIDI error while reading parameter values shows on every parameter instead of stopping the page")]
+    public async Task TransportError_WhileReadingValues_ShowsErrorOnEachParameter()
+    {
+        await using MainWindowViewModel vm = await OpenPageAsync(closeTransport: true, "System", "MIDI");
+
+        ParameterPageViewModel page = vm.Tree.Page!;
+        Assert.IsNotEmpty(page.Parameters);
+        Assert.IsTrue(page.Parameters.All(p => p.Error == "InvalidOperationException: The transport is not open."));
+        Assert.IsFalse(page.IsLoading);
+    }
+
+    [TestMethod]
+    [Description("PAR-001: a MIDI error while reading the active algorithms shows a notice on the page")]
+    public async Task TransportError_WhileReadingActiveAlgorithms_ShowsNotice()
+    {
+        await using MainWindowViewModel vm = await OpenPageAsync(closeTransport: true, "Program", "Pitch", "no effect");
+
+        Assert.AreEqual("Could not read this page: The transport is not open.", vm.Tree.Page!.Notice);
     }
 }

@@ -16,8 +16,13 @@ env:
 
 jobs:
   build:
-    name: Build and Test
-    runs-on: windows-latest
+    name: Build and Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # WinMM tests skip themselves on Linux; the AOT publish runs on Windows only until P1.3.
+        os: [windows-latest, ubuntu-latest]
     
     steps:
       - name: Checkout repository
@@ -43,18 +48,21 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}
           path: test-results/*.trx
 
       - name: Publish (Native AOT, win-x64)
+        if: runner.os == 'Windows'
         run: dotnet publish src/BB84.MPX1.App --configuration ${{ env.CONFIGURATION }} -r win-x64 -o artifacts/publish
 
       # A Native AOT publish leaves no managed app assembly behind.
       - name: Verify Native AOT output
+        if: runner.os == 'Windows'
         shell: pwsh
         run: if (Test-Path artifacts/publish/BB84.MPX1.App.dll) { throw "Publish is not Native AOT." }
 
       - name: Upload publish results
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
           name: BB84.MPX1-win-x64

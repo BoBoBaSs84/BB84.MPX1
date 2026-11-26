@@ -3,6 +3,7 @@ using BB84.MPX1.Core.Protocol;
 namespace BB84.MPX1.Midi.WinMM.Tests;
 
 [TestClass]
+[OSCondition(OperatingSystems.Windows)]
 public sealed class WinMMMidiTransportTests
 {
     public TestContext TestContext { get; set; } = null!;

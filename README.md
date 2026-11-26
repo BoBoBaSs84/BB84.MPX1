@@ -51,7 +51,7 @@ To try the editor without a unit, select **MPX 1 Simulator** as the input and ou
 - If you see timeouts, check the device ID, then raise **Timeout** or set a **Frame gap** of a few milliseconds for slow interfaces.
 - **Test connection** sends ARE_YOU_THERE and reports whether the unit answered.
 
-Settings are stored in `%APPDATA%\BB84.MPX1\settings.json`. Learned databases are cached in `%LOCALAPPDATA%\BB84.MPX1\databases`.
+Settings are stored in `%APPDATA%\BB84.MPX1\settings.json`. Learned databases are cached in `%LOCALAPPDATA%\BB84.MPX1\databases`. On Linux these are `$XDG_CONFIG_HOME/BB84.MPX1/settings.json` (default `~/.config`) and `$XDG_DATA_HOME/BB84.MPX1/databases` (default `~/.local/share`).
 
 ## Building from source
 
@@ -62,6 +62,8 @@ dotnet build BB84.MPX1.slnx -c Release
 dotnet test --solution BB84.MPX1.slnx -c Release -- --ignore-exit-code 8 --filter "TestCategory!=Hardware"
 dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 ```
+
+The solution also builds and its tests pass on Linux. There the app offers only the simulator until a Linux MIDI transport is added (roadmap P1.2). The WinMM tests skip themselves on Linux. To package a release zip, run `./build/package.ps1 -Version <version> -Runtime win-x64` (or `linux-x64`).
 
 ### Unit tests and loopMIDI
 

@@ -6,6 +6,9 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ### Added
 
+- **Linux build and tests** (#40). The solution now builds and its tests pass on Linux, and CI builds and tests on both Windows and Linux. On Linux the app offers only the simulator until a Linux MIDI transport is added. Its settings and learned databases follow the XDG directories (`~/.config/BB84.MPX1`, `~/.local/share/BB84.MPX1`). The WinMM tests skip themselves outside Windows.
+- `build/package.ps1` takes a `-Runtime` parameter: `win-x64` (the default) or `linux-x64`.
+
 - Reference material: Markdown extractions of the Rev0 (V1.00) Lexicon documents (MIDI implementation, user guide, presets, quick reference) in `legacy/`. They stay out of release builds. The specification now logs the V1.00/V1.10 differences found in them (spec section 9, E14–E17).
 - Simulator: a V1.00 device model, built at test time from the V1.00 learn recording (`FixtureBuilder`). It has the full control tree of the real unit and answers like it: no single active-setup address, and every stored setup reads as setup 1 (E13). The Librarian, front-panel and simulator tests now run against both V1.10 and V1.00, including fault injection and BUSY/READY, which the replay tests cannot cover.
 
@@ -28,6 +31,7 @@ All notable changes to BB84.MPX1 are documented here. The format follows [Keep a
 
 ### Changed
 
+- Specification: CON-001, AC-018 and the CI/CD section list the supported runtime identifiers (`win-x64`, `linux-x64`) and the Windows/Linux CI matrix.
 - Roadmap: post-1.0 platform work is split into Linux (P1.1–P1.5: groundwork and CI, ALSA sequencer transport, AppImage, Flatpak, validation and release) and macOS (P2.1–P2.3), with Linux first.
 - Simulator fixtures (schema version 2) declare their special cases: Panel Button, Display, LEDs, Patches, Soft Row, the all-setups dump and the single-setup addresses. The simulator no longer assumes V1.10 type numbers. Schema 1 fixtures load with the V1.10 special cases.
 - **Program numbers match the front panel**: the app now numbers programs 1–250 like the MPX 1 display and the user guide (presets 1–200, user programs 201–250), instead of the protocol's 0–249. This applies to the Librarian list, status messages, confirmations, export file names, error messages and the Program tab's store box. The MIDI monitor still shows the protocol numbers it decodes from the wire.

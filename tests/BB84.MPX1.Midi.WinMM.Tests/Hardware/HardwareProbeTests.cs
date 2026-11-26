@@ -13,6 +13,7 @@ namespace BB84.MPX1.Midi.WinMM.Tests.Hardware;
 /// <c>MPX1_PROBE_PROGRAM</c> selects the protocol program number (default 203).
 /// </remarks>
 [TestClass]
+[OSCondition(OperatingSystems.Windows)]
 [TestCategory("Hardware")]
 [DoNotParallelize]
 public sealed class HardwareProbeTests

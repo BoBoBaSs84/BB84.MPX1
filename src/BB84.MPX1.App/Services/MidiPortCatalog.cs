@@ -46,7 +46,11 @@ public sealed class MidiPortCatalog(Func<IMidiTransport>? createHardware, Func<M
 
     /// <summary>Creates the catalog used by the application on this OS.</summary>
     public static MidiPortCatalog CreateDefault()
-        => new(OperatingSystem.IsWindows() ? CreateWinMM : null);
+        => new(HardwareFactory());
+
+    // ALSA (P1.2) and CoreMIDI (P2.1) adapters plug in here; without one the app offers only the simulator.
+    private static Func<IMidiTransport>? HardwareFactory()
+        => OperatingSystem.IsWindows() ? CreateWinMM : null;
 
     private static WinMMMidiTransport CreateWinMM()
         => OperatingSystem.IsWindows() ? new WinMMMidiTransport() : throw new PlatformNotSupportedException("WinMM is only available on Windows.");

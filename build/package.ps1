@@ -8,9 +8,10 @@
     (spec COM-001), and writes the release artifact plus a SHA-256 file and the release notes taken from the
     CHANGELOG section of that version.
 
-    win-x64 produces BB84.MPX1-<version>-win-x64.zip. linux-x64 produces BB84.MPX1-<version>-x86_64.AppImage from an
-    AppDir with the desktop files in packaging/linux. It must run on Linux (Native AOT does not cross-compile) and
-    downloads pinned, checksum-verified copies of appimagetool and the AppImage runtime.
+    win-x64 produces BB84.MPX1-<version>-win-x64.zip. linux-x64 produces BB84.MPX1-<version>-x86_64.AppImage and
+    BB84.MPX1-<version>-x86_64.flatpak from one AppDir with the desktop files and the Flatpak manifest in
+    packaging/linux. It must run on Linux (Native AOT does not cross-compile), needs flatpak and flatpak-builder with
+    the flathub remote added, and downloads pinned, checksum-verified copies of appimagetool and the AppImage runtime.
 
 .PARAMETER Version
     The release version, for example 1.0.0 (no leading "v").
@@ -35,6 +36,9 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
 }
 
 if ($Runtime -like 'linux-*' -and -not $IsLinux) { throw "The $Runtime package must be built on Linux." }
+if ($Runtime -like 'linux-*' -and -not (Get-Command flatpak-builder -ErrorAction SilentlyContinue)) {
+    throw "flatpak-builder is missing. Install flatpak and flatpak-builder, then add the flathub remote."
+}
 
 $appId = 'io.github.BoBoBaSs84.BB84.MPX1'
 # Pinned AppImage tooling; change a URL and its SHA-256 together.
@@ -133,6 +137,18 @@ try {
         & $tool --appimage-extract-and-run --runtime-file $runtimeFile $appDir $appImage
         if ($LASTEXITCODE -ne 0) { throw "appimagetool failed with exit code $LASTEXITCODE." }
         Write-Checksum $appImage
+
+        # The Flatpak bundle wraps the same AppDir; the manifest's dir source points at it.
+        $manifest = Join-Path $Output "$appId.yml"
+        $repo = Join-Path $Output 'flatpak-repo'
+        Copy-Item "$linux/$appId.yml" $manifest
+        flatpak-builder --user --install-deps-from=flathub --force-clean "--repo=$repo" "--state-dir=$(Join-Path $Output 'flatpak-state')"(Join-Path $Output 'flatpak-build') $manifest
+        if ($LASTEXITCODE -ne 0) { throw "flatpak-builder failed with exit code $LASTEXITCODE." }
+        $bundle = Join-Path $Output "BB84.MPX1-$Version-x86_64.flatpak"
+        # With the runtime repo, flatpak install fetches the freedesktop runtime from Flathub.
+        flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo $repo $bundle $appId
+        if ($LASTEXITCODE -ne 0) { throw "flatpak build-bundle failed with exit code $LASTEXITCODE." }
+        Write-Checksum $bundle
     }
     ($notes -join "`n").Trim() | Set-Content -Encoding utf8 (Join-Path $Output 'release-notes.md')
 

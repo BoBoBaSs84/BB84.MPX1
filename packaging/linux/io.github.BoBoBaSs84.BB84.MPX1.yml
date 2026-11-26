@@ -1,0 +1,29 @@
+# Flatpak manifest. build/package.ps1 copies it next to the AppDir it builds (BB84.MPX1.AppDir) and runs
+# flatpak-builder on it, so the bundle holds the same Native AOT build as the AppImage.
+id: io.github.BoBoBaSs84.BB84.MPX1
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: BB84.MPX1
+
+finish-args:
+  - --share=ipc
+  # Avalonia has an X11 backend only; Wayland desktops run it through XWayland.
+  - --socket=x11
+  # The ALSA sequencer (/dev/snd/seq) has no narrower device permission. This also covers the GPU.
+  - --device=all
+  # No network and no filesystem access: .syx files are opened and saved through the file chooser portal.
+
+modules:
+  - name: bb84-mpx1
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: BB84.MPX1.AppDir
+    build-commands:
+      - install -Dm755 usr/bin/BB84.MPX1 -t /app/bin
+      - install -Dm644 usr/bin/*.so -t /app/bin
+      - install -Dm644 usr/share/applications/io.github.BoBoBaSs84.BB84.MPX1.desktop -t /app/share/applications
+      - install -Dm644 usr/share/metainfo/io.github.BoBoBaSs84.BB84.MPX1.metainfo.xml -t /app/share/metainfo
+      - install -Dm644 usr/share/icons/hicolor/scalable/apps/io.github.BoBoBaSs84.BB84.MPX1.svg -t /app/share/icons/hicolor/scalable/apps
+      - install -Dm644 usr/bin/LICENSE -t /app/share/licenses/io.github.BoBoBaSs84.BB84.MPX1

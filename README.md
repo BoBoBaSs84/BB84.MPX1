@@ -40,7 +40,9 @@ BB84.MPX1 is a clean-room implementation, written from Lexicon's published MIDI 
 
 1. Download the build for your system from the releases page:
    - Windows: `BB84.MPX1-<version>-win-x64.zip`. Extract it anywhere and start `BB84.MPX1.exe`.
-   - Linux (x64): `BB84.MPX1-<version>-x86_64.AppImage`. Make it executable (`chmod +x BB84.MPX1-*.AppImage`) and start it. See [Linux](#linux) below.
+   - Linux (x64), either of these. See [Linux](#linux) below.
+     - `BB84.MPX1-<version>-x86_64.AppImage`. Make it executable (`chmod +x BB84.MPX1-*.AppImage`) and start it.
+     - `BB84.MPX1-<version>-x86_64.flatpak`, a sandboxed package. Install it with `flatpak install --user BB84.MPX1-<version>-x86_64.flatpak` and start it from the app menu or with `flatpak run io.github.BoBoBaSs84.BB84.MPX1`. Flatpak fetches the freedesktop runtime from Flathub during the install.
 2. Neither build needs .NET installed. Each `.sha256` file holds the checksum of its download.
 3. Open **MIDI setup**, choose the MIDI input and output connected to the MPX 1, and set the **Device ID** to the unit's Receive Device ID (System > MIDI > SysEx, then Options). Choose **Connect**.
 4. The first time you connect a given firmware build, choose **Learn**. Learning takes a short while; the result is cached, so later connections are immediate.
@@ -54,6 +56,8 @@ The AppImage needs:
 - `fusermount` to mount itself (package `fuse3` or `fuse`). Without it, run it with `--appimage-extract-and-run`.
 - `libasound2` (on newer Ubuntu and Debian `libasound2t64`) for MIDI. It is not bundled, because it must match the system's ALSA setup.
 - Access to the ALSA sequencer device `/dev/snd/seq`. On most distributions this means membership in the `audio` group: `sudo usermod -aG audio $USER`, then log out and in again.
+
+The Flatpak brings its own `libasound2` and needs only the sequencer access. Its sandbox allows the X11 display (XWayland on Wayland desktops) and device access for MIDI, and nothing else. It has no network access, and it opens and saves `.syx` files through the system file dialog (the file chooser portal). Its settings and learned databases live in `~/.var/app/io.github.BoBoBaSs84.BB84.MPX1/`.
 
 MIDI ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator.
 
@@ -77,7 +81,7 @@ dotnet test --solution BB84.MPX1.slnx -c Release -- --ignore-exit-code 8 --filte
 dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 ```
 
-The solution also builds and its tests pass on Linux. There the app talks to MIDI ports through the ALSA sequencer. It needs `libasound2` and access to `/dev/snd/seq` (usually membership in the `audio` group). Ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator. The WinMM tests skip themselves on Linux. The ALSA loopback tests (category `Alsa`) use the kernel's `Midi Through` port (`sudo modprobe snd-seq-dummy`), and report as inconclusive without it. To package a release, run `./build/package.ps1 -Version <version> -Runtime win-x64` for the Windows zip, or `-Runtime linux-x64` on Linux for the AppImage. The AppImage's desktop file, AppStream metainfo and icon are in `packaging/linux`.
+The solution also builds and its tests pass on Linux. There the app talks to MIDI ports through the ALSA sequencer. It needs `libasound2` and access to `/dev/snd/seq` (usually membership in the `audio` group). Ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator. The WinMM tests skip themselves on Linux. The ALSA loopback tests (category `Alsa`) use the kernel's `Midi Through` port (`sudo modprobe snd-seq-dummy`), and report as inconclusive without it. To package a release, run `./build/package.ps1 -Version <version> -Runtime win-x64` for the Windows zip, or `-Runtime linux-x64` on Linux for the AppImage and the Flatpak bundle. The Linux package also needs `flatpak` and `flatpak-builder` with the Flathub remote (`flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo`). The desktop file, AppStream metainfo, icon and Flatpak manifest are in `packaging/linux`.
 
 ### Unit tests and loopMIDI
 

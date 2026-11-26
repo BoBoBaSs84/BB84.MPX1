@@ -1,7 +1,7 @@
 name: Continuous Deployment
 
 # Pushing a tag such as v1.0.0 builds and tests on Windows and Linux, packages the Native AOT win-x64 zip and the
-# linux-x64 AppImage, and creates the GitHub Release.
+# linux-x64 AppImage and Flatpak bundle, and creates the GitHub Release.
 on:
   push:
     tags: ["v*"]
@@ -63,10 +63,15 @@ jobs:
           name: test-results-${{ matrix.rid }}
           path: test-results/*.trx
 
-      # The Native AOT linker on Linux needs clang and zlib.
-      - name: Install AOT prerequisites
+      # The Native AOT linker on Linux needs clang and zlib; the Flatpak bundle needs flatpak-builder and Flathub.
+      # Ubuntu 24.04+ blocks the unprivileged user namespaces that flatpak-builder's bubblewrap sandbox uses.
+      - name: Install Linux packaging prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang zlib1g-dev
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang zlib1g-dev flatpak flatpak-builder
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Package (Native AOT, ${{ matrix.rid }})
         shell: pwsh
@@ -79,6 +84,7 @@ jobs:
           path: |
             artifacts/release/*.zip
             artifacts/release/*.AppImage
+            artifacts/release/*.flatpak
             artifacts/release/*.sha256
             artifacts/release/release-notes.md
 
@@ -105,6 +111,7 @@ jobs:
           $files = @(
             "dist/BB84.MPX1-$version-win-x64.zip"
             "dist/BB84.MPX1-$version-x86_64.AppImage"
+            "dist/BB84.MPX1-$version-x86_64.flatpak"
           )
           $files += $files | ForEach-Object { "$_.sha256" }
           $files | ForEach-Object { if (-not (Test-Path $_)) { throw "$_ is missing." } }

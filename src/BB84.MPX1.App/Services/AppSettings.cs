@@ -104,11 +104,13 @@ public static class AppPaths
 {
     private const string AppFolder = "BB84.MPX1";
 
-    /// <summary>Gets the settings file, under the roaming application data folder.</summary>
-    public static string SettingsFile { get; } = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder, "settings.json");
+    // DoNotVerify: on Linux a missing ~/.config or ~/.local/share would otherwise give "" and a relative path; the stores create the folders.
 
-    /// <summary>Gets the learned-database cache folder (LRN-004), under the local application data folder.</summary>
+    /// <summary>Gets the settings file, under the roaming application data folder (<c>$XDG_CONFIG_HOME</c> on Linux).</summary>
+    public static string SettingsFile { get; } = System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.DoNotVerify), AppFolder, "settings.json");
+
+    /// <summary>Gets the learned-database cache folder (LRN-004), under the local application data folder (<c>$XDG_DATA_HOME</c> on Linux).</summary>
     public static string DatabaseDirectory { get; } = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolder, "databases");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify), AppFolder, "databases");
 }

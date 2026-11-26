@@ -10,6 +10,7 @@ namespace BB84.MPX1.Midi.WinMM.Tests;
 // The editor stack against the simulator, with every frame crossing the real WinMM transport through the two
 // loopMIDI ports "loopMIDI Port Editor" and "loopMIDI Port Simulator". Inconclusive when the ports are missing.
 [TestClass]
+[OSCondition(OperatingSystems.Windows)]
 public sealed class LoopMidiSimulatorTests
 {
     private static readonly DeviceId Device = new(0);

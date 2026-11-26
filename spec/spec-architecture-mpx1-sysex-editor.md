@@ -206,7 +206,7 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 
 ### 3.11 Constraints (CON)
 
-- **CON-001**: Target framework `net10.0`. The app is published with `PublishAot=true` for `win-x64`.
+- **CON-001**: Target framework `net10.0`. The app is published with `PublishAot=true`. Supported runtime identifiers: `win-x64` (released) and `linux-x64` (builds and tests run on Linux; Linux packages follow in roadmap P1.3).
 - **CON-002**: Builds shall produce zero trimming/AOT warnings (`IL2xxx`, `IL3xxx`). These warnings are treated as errors.
 - **CON-003**: No reflection-based serialization. JSON uses `System.Text.Json` source generation.
 - **CON-004**: `BB84.MPX1.Core` shall have no I/O, no OS API calls and no UI dependency.
@@ -376,7 +376,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
 - **AC-015** (LRN-008): Given Detune (M) is loaded, When the user edits a Shift (M) parameter, Then no Parameter Data frame is sent and the UI explains why.
 - **AC-016** (PAR-004): Given Rate value `0x8304`, Then it is displayed as ratio 3:4. Given `0x0064`, Then it is displayed as 1.00 Hz.
 - **AC-017** (PRG-005): Given a simulator with 250 programs, When backup and then restore run, Then the simulator state is byte-identical before and after.
-- **AC-018** (CON-001/002): When `dotnet publish src/BB84.MPX1.App -r win-x64 -c Release` runs, Then it produces a native executable with zero IL2xxx/IL3xxx warnings.
+- **AC-018** (CON-001/002): When `dotnet publish src/BB84.MPX1.App -r <rid> -c Release` runs for a supported runtime identifier (`win-x64` in CI), Then it produces a native executable with zero IL2xxx/IL3xxx warnings.
 
 ## 6. Test Automation Strategy
 
@@ -387,7 +387,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
   - Hardware: tests marked `[TestCategory("Hardware")]`, excluded by default, run manually against a real MPX 1.
 - **Frameworks**: MSTest 4 on Microsoft.Testing.Platform. No mocking framework is required; the simulator and hand-written fakes replace mocks.
 - **Test data**: spec byte vectors live inline in tests next to their requirement ID. Simulator fixtures and recorded sessions live under `tests/data/`.
-- **CI/CD**: GitHub Actions on `windows-latest` runs restore, build (warnings as errors), test (excluding Hardware) and an AOT publish of the app. Upload the published exe as a build artifact.
+- **CI/CD**: GitHub Actions runs restore, build (warnings as errors) and test (excluding Hardware) on `windows-latest` and `ubuntu-latest`; the WinMM tests run on Windows only. On `windows-latest` it also runs the `win-x64` AOT publish of the app and uploads the published exe as a build artifact.
 - **Coverage**: at least 90 % line coverage for `BB84.MPX1.Core`, at least 75 % for `BB84.MPX1.Midi`. No threshold for App.
 - **Performance**: learning against the simulator with zero latency shall finish in under 5 s. Codec decode of a Program Dump shall allocate no more than the resulting model.
 

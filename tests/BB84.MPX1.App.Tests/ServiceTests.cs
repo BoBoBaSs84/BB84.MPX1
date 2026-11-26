@@ -171,6 +171,45 @@ public sealed class ServiceTests
     }
 
     [TestMethod]
+    [OSCondition(OperatingSystems.Linux)]
+    [Description("CON-001: on Linux, without a hardware transport, the default catalog offers only the simulator")]
+    public async Task DefaultCatalog_OnLinux_OffersOnlyTheSimulator()
+    {
+        MidiPortCatalog catalog = MidiPortCatalog.CreateDefault();
+
+        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetInputs().Single());
+        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetOutputs().Single());
+        await using IMidiTransport transport = catalog.CreateTransport(MidiPortCatalog.Simulator, MidiPortCatalog.Simulator);
+        Assert.IsInstanceOfType<Simulator.Mpx1Simulator>(transport);
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux)]
+    [Description("LRN-004: on Linux, settings follow $XDG_CONFIG_HOME and the learned-database cache $XDG_DATA_HOME")]
+    public void AppPaths_OnLinux_FollowXdgDirectories()
+    {
+        string home = Environment.GetEnvironmentVariable("HOME")!;
+        string config = XdgDirectory("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
+        string data = XdgDirectory("XDG_DATA_HOME") ?? Path.Combine(home, ".local", "share");
+
+        Assert.AreEqual(Path.Combine(config, "BB84.MPX1", "settings.json"), AppPaths.SettingsFile);
+        Assert.AreEqual(Path.Combine(data, "BB84.MPX1", "databases"), AppPaths.DatabaseDirectory);
+
+        // The XDG spec ignores unset, empty and relative values.
+        static string? XdgDirectory(string name)
+            => Environment.GetEnvironmentVariable(name) is { Length: > 0 } value && Path.IsPathRooted(value) ? value : null;
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Description("LRN-004: on Windows, settings live under %APPDATA% and the learned-database cache under %LOCALAPPDATA%")]
+    public void AppPaths_OnWindows_UseApplicationDataFolders()
+    {
+        Assert.AreEqual(Path.Combine(Environment.GetEnvironmentVariable("APPDATA")!, "BB84.MPX1", "settings.json"), AppPaths.SettingsFile);
+        Assert.AreEqual(Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA")!, "BB84.MPX1", "databases"), AppPaths.DatabaseDirectory);
+    }
+
+    [TestMethod]
     [Description("Spec 4.7: settings persist as JSON; a corrupt file falls back to defaults (SEC-002)")]
     public void SettingsStore_RoundTripsAndToleratesCorruptFiles()
     {

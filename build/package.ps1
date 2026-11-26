@@ -1,21 +1,25 @@
 <#
 .SYNOPSIS
-    Publishes BB84.MPX1 with Native AOT for win-x64 and packages the release zip.
+    Publishes BB84.MPX1 with Native AOT for one runtime identifier and packages the release zip.
 
 .DESCRIPTION
     Publishes the app with the given version, copies the executable, its native libraries, LICENSE, README and
     CHANGELOG into a staging folder, refuses to package anything from legacy/ or other Lexicon/WazWare material
-    (spec COM-001), and writes BB84.MPX1-<version>-win-x64.zip plus a SHA-256 file and the release notes taken
+    (spec COM-001), and writes BB84.MPX1-<version>-<runtime>.zip plus a SHA-256 file and the release notes taken
     from the CHANGELOG section of that version.
 
 .PARAMETER Version
     The release version, for example 1.0.0 (no leading "v").
+
+.PARAMETER Runtime
+    The runtime identifier to publish for: win-x64 (default) or linux-x64.
 
 .PARAMETER Output
     Output folder. Defaults to artifacts/release.
 #>
 param(
     [Parameter(Mandatory)][string]$Version,
+    [ValidateSet('win-x64', 'linux-x64')][string]$Runtime = 'win-x64',
     [string]$Output = 'artifacts/release'
 )
 
@@ -40,15 +44,19 @@ try {
     }
 
     $publish = Join-Path $Output 'publish'
-    $staging = Join-Path $Output "BB84.MPX1-$Version-win-x64"
+    $staging = Join-Path $Output "BB84.MPX1-$Version-$Runtime"
+    $executable = if ($Runtime -like 'win-*') { 'BB84.MPX1.exe' } else { 'BB84.MPX1' }
     Remove-Item -Recurse -Force $Output -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $staging | Out-Null
 
-    dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o $publish `
+    dotnet publish src/BB84.MPX1.App -c Release -r $Runtime -o $publish `
         "-p:Version=$Version" -p:DebugType=none -p:GenerateDocumentationFile=false
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE." }
 
-    Copy-Item (Join-Path $publish '*.exe'), (Join-Path $publish '*.dll') $staging
+    if (-not (Test-Path (Join-Path $publish $executable))) { throw "$executable is missing from the publish output." }
+    Copy-Item (Join-Path $publish $executable) $staging
+    # Avalonia's native rendering libraries ship next to the executable.
+    Get-ChildItem $publish -File | Where-Object Extension -in '.dll', '.so' | Copy-Item -Destination $staging
     Copy-Item LICENSE, README.md, CHANGELOG.md $staging
 
     # COM-001: Lexicon documents and the legacy editor must never ship.
@@ -56,9 +64,8 @@ try {
         $_.Extension -in '.pdf', '.hlp', '.lzh' -or $_.Name -match 'MPX1EDIT|MPX1HLP|MPX1_V1|_original' -or $_.FullName -match '[\\/]legacy[\\/]'
     }
     if ($forbidden) { throw "Forbidden files in the release: $($forbidden.Name -join ', ')" }
-    if (-not (Test-Path (Join-Path $staging 'BB84.MPX1.exe'))) { throw 'BB84.MPX1.exe is missing from the publish output.' }
 
-    $zip = Join-Path $Output "BB84.MPX1-$Version-win-x64.zip"
+    $zip = Join-Path $Output "BB84.MPX1-$Version-$Runtime.zip"
     Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip
     $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
     "$hash  $(Split-Path -Leaf $zip)" | Set-Content -Encoding ascii "$zip.sha256"

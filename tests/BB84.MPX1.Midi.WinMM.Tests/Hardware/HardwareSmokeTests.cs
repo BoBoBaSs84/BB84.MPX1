@@ -7,6 +7,7 @@ namespace BB84.MPX1.Midi.WinMM.Tests.Hardware;
 /// <c>--filter "TestCategory!=Hardware"</c>; see <see cref="HardwareRig"/> for the configuration.
 /// </summary>
 [TestClass]
+[OSCondition(OperatingSystems.Windows)]
 [TestCategory("Hardware")]
 [DoNotParallelize]
 public sealed class HardwareSmokeTests

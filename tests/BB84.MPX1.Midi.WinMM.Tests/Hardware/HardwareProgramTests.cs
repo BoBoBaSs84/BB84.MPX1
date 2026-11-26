@@ -24,6 +24,7 @@ namespace BB84.MPX1.Midi.WinMM.Tests.Hardware;
 /// </list>
 /// </remarks>
 [TestClass]
+[OSCondition(OperatingSystems.Windows)]
 [TestCategory("Hardware")]
 [DoNotParallelize]
 public sealed class HardwareProgramTests

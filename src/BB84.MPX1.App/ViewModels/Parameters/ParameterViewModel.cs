@@ -91,8 +91,9 @@ public abstract partial class ParameterViewModel
             Error = null;
             IsLoaded = true;
         }
-        catch (Exception ex) when (ex is Mpx1TimeoutException or ArgumentException)
+        catch (Exception ex) when (OperationStatus.IsExpected(ex) || ex is InvalidOperationException)
         {
+            // InvalidOperationException: the transport closed under the session, for example an unplugged interface.
             Error = Describe(ex);
         }
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 
 using BB84.SourceGenerators.Attributes;
 
+using BB84.MPX1.App.Services;
 using BB84.MPX1.App.ViewModels.Parameters;
 using BB84.MPX1.Core.Database;
 using BB84.MPX1.Core.Protocol;
@@ -120,6 +121,11 @@ public sealed partial class ParameterPageViewModel : IDisposable
         catch (Mpx1TimeoutException)
         {
             Notice = "The device did not answer while reading this page.";
+        }
+        catch (Exception ex) when (OperationStatus.IsExpected(ex) || ex is InvalidOperationException)
+        {
+            // InvalidOperationException: the transport closed under the session, for example an unplugged interface.
+            Notice = $"Could not read this page: {ex.Message}";
         }
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
         {

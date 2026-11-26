@@ -1,5 +1,7 @@
 # BB84.MPX1
 
+<img src="docs/images/BB84.MPX1.png" alt="BB84.MPX1 icon" width="128" align="right" />
+
 A SysEx editor and librarian for the **Lexicon MPX 1** multi-effects processor (firmware V1.00 and V1.10). It replaces the 1998 16-bit editor, which no longer runs on 64-bit Windows.
 
 BB84.MPX1 is a clean-room implementation, written from Lexicon's published MIDI Implementation document only. It is a single native Windows x64 executable (.NET 10 Native AOT, Avalonia UI), and you don't need to install .NET.
@@ -36,12 +38,24 @@ BB84.MPX1 is a clean-room implementation, written from Lexicon's published MIDI 
 
 ## Getting started
 
-1. Download `BB84.MPX1-<version>-win-x64.zip` from the releases page and extract it anywhere.
-2. Start `BB84.MPX1.exe`.
+1. Download the build for your system from the releases page:
+   - Windows: `BB84.MPX1-<version>-win-x64.zip`. Extract it anywhere and start `BB84.MPX1.exe`.
+   - Linux (x64): `BB84.MPX1-<version>-x86_64.AppImage`. Make it executable (`chmod +x BB84.MPX1-*.AppImage`) and start it. See [Linux](#linux) below.
+2. Neither build needs .NET installed. Each `.sha256` file holds the checksum of its download.
 3. Open **MIDI setup**, choose the MIDI input and output connected to the MPX 1, and set the **Device ID** to the unit's Receive Device ID (System > MIDI > SysEx, then Options). Choose **Connect**.
 4. The first time you connect a given firmware build, choose **Learn**. Learning takes a short while; the result is cached, so later connections are immediate.
 
 To try the editor without a unit, select **MPX 1 Simulator** as the input and output.
+
+### Linux
+
+The AppImage needs:
+
+- `fusermount` to mount itself (package `fuse3` or `fuse`). Without it, run it with `--appimage-extract-and-run`.
+- `libasound2` (on newer Ubuntu and Debian `libasound2t64`) for MIDI. It is not bundled, because it must match the system's ALSA setup.
+- Access to the ALSA sequencer device `/dev/snd/seq`. On most distributions this means membership in the `audio` group: `sudo usermod -aG audio $USER`, then log out and in again.
+
+MIDI ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator.
 
 ### MIDI setup tips
 
@@ -55,7 +69,7 @@ Settings are stored in `%APPDATA%\BB84.MPX1\settings.json`. Learned databases ar
 
 ## Building from source
 
-Requires the .NET 10 SDK. Native AOT publishing also needs the Visual Studio C++ build tools.
+Requires the .NET 10 SDK. Native AOT publishing also needs the Visual Studio C++ build tools on Windows, or `clang` and `zlib1g-dev` on Linux.
 
 ```powershell
 dotnet build BB84.MPX1.slnx -c Release
@@ -63,7 +77,7 @@ dotnet test --solution BB84.MPX1.slnx -c Release -- --ignore-exit-code 8 --filte
 dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 ```
 
-The solution also builds and its tests pass on Linux. There the app talks to MIDI ports through the ALSA sequencer. It needs `libasound2` and access to `/dev/snd/seq` (usually membership in the `audio` group). Ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator. The WinMM tests skip themselves on Linux. The ALSA loopback tests (category `Alsa`) use the kernel's `Midi Through` port (`sudo modprobe snd-seq-dummy`), and report as inconclusive without it. To package a release zip, run `./build/package.ps1 -Version <version> -Runtime win-x64` (or `linux-x64`).
+The solution also builds and its tests pass on Linux. There the app talks to MIDI ports through the ALSA sequencer. It needs `libasound2` and access to `/dev/snd/seq` (usually membership in the `audio` group). Ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator. The WinMM tests skip themselves on Linux. The ALSA loopback tests (category `Alsa`) use the kernel's `Midi Through` port (`sudo modprobe snd-seq-dummy`), and report as inconclusive without it. To package a release, run `./build/package.ps1 -Version <version> -Runtime win-x64` for the Windows zip, or `-Runtime linux-x64` on Linux for the AppImage. The AppImage's desktop file, AppStream metainfo and icon are in `packaging/linux`.
 
 ### Unit tests and loopMIDI
 

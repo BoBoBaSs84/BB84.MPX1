@@ -207,12 +207,12 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 
 ### 3.11 Constraints (CON)
 
-- **CON-001**: Target framework `net10.0`. The app is published with `PublishAot=true`. Supported runtime identifiers: `win-x64` (released) and `linux-x64` (builds and tests run on Linux; Linux packages follow in roadmap P1.3).
+- **CON-001**: Target framework `net10.0`. The app is published with `PublishAot=true`. Supported runtime identifiers: `win-x64` (released as a zip) and `linux-x64` (released as an AppImage, built on Linux because Native AOT does not cross-compile).
 - **CON-002**: Builds shall produce zero trimming/AOT warnings (`IL2xxx`, `IL3xxx`). These warnings are treated as errors.
 - **CON-003**: No reflection-based serialization. JSON uses `System.Text.Json` source generation.
 - **CON-004**: `BB84.MPX1.Core` shall have no I/O, no OS API calls and no UI dependency.
 - **CON-005**: Clean room: no code, text, bitmaps or resources from `MPX1EDIT.EXE` or `MPX1HLP.HLP` shall be copied. The old editor may be used only as a black-box behavior reference (for example, run under otvdm and compare MIDI traffic).
-- **CON-006**: No Lexicon logo or trademark artwork. Product names may be used descriptively ("for the Lexicon MPX 1").
+- **CON-006**: No Lexicon logo or trademark artwork. Product names may be used descriptively ("for the Lexicon MPX 1"). The app's own icon (a generic rack unit with a MIDI socket: `src/BB84.MPX1.App/Assets/BB84.MPX1.ico`, `packaging/linux/io.github.BoBoBaSs84.BB84.MPX1.svg`, `docs/images/BB84.MPX1.png`) is original artwork and the app's only image resource.
 - **CON-007**: Destructive device operations (writing presets, restoring backups, writing Setup) shall require user confirmation.
 
 ### 3.12 Guidelines (GUD)
@@ -233,15 +233,15 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 
 ### 4.1 Solution layout
 
-| Project                    | Kind                                           | Depends on                        |
-| -------------------------- | ---------------------------------------------- | --------------------------------- |
-| `src/BB84.MPX1.Core`       | Class library (AOT/trim compatible)            | —                                 |
-| `src/BB84.MPX1.Midi`       | Class library: transport abstraction + session | Core                              |
-| `src/BB84.MPX1.Midi.WinMM` | Class library: WinMM adapter (Windows only)    | Midi                              |
-| `src/BB84.MPX1.Midi.Alsa`  | Class library: ALSA sequencer adapter (Linux)  | Midi                              |
-| `src/BB84.MPX1.Simulator`  | Class library: simulated device + replay       | Core, Midi                        |
+| Project                    | Kind                                           | Depends on                                   |
+| -------------------------- | ---------------------------------------------- | -------------------------------------------- |
+| `src/BB84.MPX1.Core`       | Class library (AOT/trim compatible)            | —                                            |
+| `src/BB84.MPX1.Midi`       | Class library: transport abstraction + session | Core                                         |
+| `src/BB84.MPX1.Midi.WinMM` | Class library: WinMM adapter (Windows only)    | Midi                                         |
+| `src/BB84.MPX1.Midi.Alsa`  | Class library: ALSA sequencer adapter (Linux)  | Midi                                         |
+| `src/BB84.MPX1.Simulator`  | Class library: simulated device + replay       | Core, Midi                                   |
 | `src/BB84.MPX1.App`        | Avalonia application, `PublishAot=true`        | Core, Midi, Midi.WinMM, Midi.Alsa, Simulator |
-| `tests/BB84.MPX1.*.Tests`  | MSTest projects, one per library               | project under test                |
+| `tests/BB84.MPX1.*.Tests`  | MSTest projects, one per library               | project under test                           |
 
 ### 4.2 Transport contract
 
@@ -389,7 +389,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
   - Hardware: tests marked `[TestCategory("Hardware")]`, excluded by default, run manually against a real MPX 1.
 - **Frameworks**: MSTest 4 on Microsoft.Testing.Platform. No mocking framework is required; the simulator and hand-written fakes replace mocks.
 - **Test data**: spec byte vectors live inline in tests next to their requirement ID. Simulator fixtures and recorded sessions live under `tests/data/`.
-- **CI/CD**: GitHub Actions runs restore, build (warnings as errors) and test (excluding Hardware) on `windows-latest` and `ubuntu-latest`; the WinMM tests run on Windows only. On `windows-latest` it also runs the `win-x64` AOT publish of the app and uploads the published exe as a build artifact.
+- **CI/CD**: GitHub Actions runs restore, build (warnings as errors) and test (excluding Hardware) on `windows-latest` and `ubuntu-latest`; the WinMM tests run on Windows only. Each runner also runs the AOT publish for its runtime (`win-x64`, `linux-x64`) and uploads the result as a build artifact. A `v*` tag runs the release workflow: the same build and test on both runners, `build/package.ps1` per runtime (the `win-x64` zip and the `linux-x64` AppImage, each with a SHA-256 file; the AppImage tooling is pinned and checksum-verified), then one GitHub Release with all artifacts. The AppImage's desktop file, AppStream metainfo and icon (original artwork, CON-006) are in `packaging/linux` under the application ID `io.github.BoBoBaSs84.BB84.MPX1`.
 - **Coverage**: at least 90 % line coverage for `BB84.MPX1.Core`, at least 75 % for `BB84.MPX1.Midi`. No threshold for App.
 - **Performance**: learning against the simulator with zero latency shall finish in under 5 s. Codec decode of a Program Dump shall allocate no more than the resulting model.
 
@@ -431,7 +431,7 @@ Total frame length: 844 bytes. Total payload: 419 bytes.
 
 ### Compliance Dependencies
 
-- **COM-001**: Copyright — no material from `MPX1EDIT.EXE`/`MPX1HLP.HLP`; Lexicon documents stay in `legacy/` as reference only and are not redistributed in release artifacts.
+- **COM-001**: Copyright — no material from `MPX1EDIT.EXE`/`MPX1HLP.HLP`; Lexicon documents stay in `legacy/` as reference only and are not redistributed in release artifacts. `build/package.ps1` checks every release artifact's contents (the zip staging folder and the AppImage's AppDir) and fails on such material.
 - **COM-002**: Trademarks — "Lexicon" and "MPX 1" are used only descriptively.
 
 ## 9. Examples & Edge Cases

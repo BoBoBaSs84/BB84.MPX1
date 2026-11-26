@@ -8,6 +8,7 @@
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="True"
         Title="{x:Static vm:MainWindowViewModel.Title}"
+        Icon="/Assets/BB84.MPX1.ico"
         Width="1180" Height="760" MinWidth="760" MinHeight="480">
 
   <Window.Resources>

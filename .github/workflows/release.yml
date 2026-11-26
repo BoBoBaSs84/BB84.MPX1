@@ -1,6 +1,7 @@
 name: Continuous Deployment
 
-# Pushing a tag such as v1.0.0 builds, tests, publishes the Native AOT win-x64 build and creates the GitHub Release.
+# Pushing a tag such as v1.0.0 builds and tests on Windows and Linux, packages the Native AOT win-x64 zip and the
+# linux-x64 AppImage, and creates the GitHub Release.
 on:
   push:
     tags: ["v*"]
@@ -15,10 +16,19 @@ env:
   CONFIGURATION: Release
 
 jobs:
-  release:
-    name: Build and Publish
-    runs-on: windows-latest
-    
+  package:
+    name: Build and Package (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        # Native AOT cannot cross-compile between operating systems.
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -38,6 +48,7 @@ jobs:
         run: dotnet restore ${{ env.SOLUTION }}
 
       - name: Build solution
+        shell: pwsh
         run: dotnet build ${{ env.SOLUTION }} --configuration ${{ env.CONFIGURATION }} --no-restore -p:Version=$env:VERSION
 
       # Exit code 8 = no tests found; allowed while projects are still empty.
@@ -49,19 +60,54 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: test-results-${{ matrix.rid }}
           path: test-results/*.trx
 
-      - name: Package (Native AOT, win-x64)
+      # The Native AOT linker on Linux needs clang and zlib.
+      - name: Install AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang zlib1g-dev
+
+      - name: Package (Native AOT, ${{ matrix.rid }})
         shell: pwsh
-        run: ./build/package.ps1 -Version $env:VERSION
+        run: ./build/package.ps1 -Version $env:VERSION -Runtime ${{ matrix.rid }}
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.rid }}
+          path: |
+            artifacts/release/*.zip
+            artifacts/release/*.AppImage
+            artifacts/release/*.sha256
+            artifacts/release/release-notes.md
+
+  release:
+    name: Create GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
 
       - name: Create GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          $zip = "artifacts/release/BB84.MPX1-$env:VERSION-win-x64.zip"
-          $pre = if ($env:VERSION -like '*-*') { '--prerelease' } else { $null }
-          gh release create '${{ github.ref_name }}' $zip "$zip.sha256" `
-            --title "BB84.MPX1 $env:VERSION" --notes-file artifacts/release/release-notes.md --verify-tag $pre
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $files = @(
+            "dist/BB84.MPX1-$version-win-x64.zip"
+            "dist/BB84.MPX1-$version-x86_64.AppImage"
+          )
+          $files += $files | ForEach-Object { "$_.sha256" }
+          $files | ForEach-Object { if (-not (Test-Path $_)) { throw "$_ is missing." } }
+          $pre = if ($version -like '*-*') { '--prerelease' } else { $null }
+          gh release create '${{ github.ref_name }}' $files `
+            --title "BB84.MPX1 $version" --notes-file dist/release-notes.md --verify-tag $pre

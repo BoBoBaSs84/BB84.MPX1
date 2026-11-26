@@ -21,8 +21,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # WinMM tests skip themselves on Linux; the AOT publish runs on Windows only until P1.3.
-        os: [windows-latest, ubuntu-latest]
+        # WinMM tests skip themselves on Linux. Native AOT cannot cross-compile, so each OS publishes its own runtime.
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
     
     steps:
       - name: Checkout repository
@@ -62,21 +66,25 @@ jobs:
           name: test-results-${{ matrix.os }}
           path: test-results/*.trx
 
-      - name: Publish (Native AOT, win-x64)
-        if: runner.os == 'Windows'
-        run: dotnet publish src/BB84.MPX1.App --configuration ${{ env.CONFIGURATION }} -r win-x64 -o artifacts/publish
+      # The Native AOT linker on Linux needs clang and zlib.
+      - name: Install AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y -qq clang zlib1g-dev
+
+      - name: Publish (Native AOT, ${{ matrix.rid }})
+        run: dotnet publish src/BB84.MPX1.App --configuration ${{ env.CONFIGURATION }} -r ${{ matrix.rid }} -o artifacts/publish
 
       # A Native AOT publish leaves no managed app assembly behind.
       - name: Verify Native AOT output
-        if: runner.os == 'Windows'
         shell: pwsh
         run: if (Test-Path artifacts/publish/BB84.MPX1.App.dll) { throw "Publish is not Native AOT." }
 
       - name: Upload publish results
-        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: BB84.MPX1-win-x64
+          name: BB84.MPX1-${{ matrix.rid }}
           path: |
+            artifacts/publish/BB84.MPX1
             artifacts/publish/*.exe
             artifacts/publish/*.dll
+            artifacts/publish/*.so

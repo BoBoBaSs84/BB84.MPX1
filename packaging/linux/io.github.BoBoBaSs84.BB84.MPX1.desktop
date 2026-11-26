@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=BB84.MPX1
+GenericName=MPX 1 SysEx Editor
+Comment=SysEx editor and librarian for the Lexicon MPX 1
+Exec=BB84.MPX1
+Icon=io.github.BoBoBaSs84.BB84.MPX1
+Terminal=false
+Categories=AudioVideo;Audio;Midi;
+Keywords=MIDI;SysEx;Editor;Librarian;Effects;

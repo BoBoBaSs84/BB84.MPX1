@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.BoBoBaSs84.BB84.MPX1</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>BB84.MPX1</name>
+  <summary>SysEx editor and librarian for the Lexicon MPX 1</summary>
+  <developer id="io.github.BoBoBaSs84">
+    <name>BoBoBaSs84</name>
+  </developer>
+  <description>
+    <p>
+      BB84.MPX1 edits and backs up the Lexicon MPX 1 multi-effects processor (firmware V1.00 and V1.10) over MIDI System Exclusive.
+      It is an independent project and is not affiliated with Lexicon.
+    </p>
+    <ul>
+      <li>Learns the unit's parameters and edits them live</li>
+      <li>Librarian for all 250 program slots, with backup and restore</li>
+      <li>Program, system dump and virtual front-panel editors</li>
+      <li>Import and export of .syx files, and a built-in simulator to try it without a unit</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.BoBoBaSs84.BB84.MPX1.desktop</launchable>
+  <url type="homepage">https://github.com/BoBoBaSs84/BB84.MPX1</url>
+  <url type="bugtracker">https://github.com/BoBoBaSs84/BB84.MPX1/issues</url>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Midi</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+</component>

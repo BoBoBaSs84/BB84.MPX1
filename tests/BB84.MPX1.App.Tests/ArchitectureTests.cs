@@ -45,12 +45,15 @@ public sealed partial class ArchitectureTests
         => [.. assembly.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("BB84.", StringComparison.Ordinal) || n.StartsWith("Avalonia", StringComparison.Ordinal)).Order()];
 
     [TestMethod]
-    [Description("CON-001, AC-018: net10.0, the app publishes with Native AOT, and CI runs the win-x64 AOT publish")]
+    [Description("CON-001, AC-018: net10.0, the app publishes with Native AOT, and CI runs the AOT publish for win-x64 and linux-x64")]
     public void App_IsNativeAot()
     {
         Assert.Contains("<TargetFramework>net10.0</TargetFramework>", ReadFile("Directory.Build.props"));
         Assert.Contains("<PublishAot>true</PublishAot>", ReadFile("src/BB84.MPX1.App/BB84.MPX1.App.csproj"));
-        Assert.MatchesRegex(AotPublish(), ReadFile(".github/workflows/ci.yml"));
+        string ci = ReadFile(".github/workflows/ci.yml");
+        Assert.MatchesRegex(AotPublish(), ci);
+        Assert.Contains("rid: win-x64", ci);
+        Assert.Contains("rid: linux-x64", ci);
     }
 
     [TestMethod]
@@ -134,9 +137,13 @@ public sealed partial class ArchitectureTests
     }
 
     [TestMethod]
-    [Description("CON-006, COM-002: no logo or trademark artwork; the app ships no image resources")]
+    [Description("CON-006, COM-002: no logo or trademark artwork; the app's only image resource is its own icon")]
     public void Sources_ContainNoArtwork()
-        => Assert.IsEmpty(SourceFiles("src", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.svg", "*.ico").ToList());
+    {
+        string[] images = [.. SourceFiles("src", "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.svg", "*.ico")
+            .Select(f => Path.GetRelativePath(Root.Value, f).Replace('\\', '/'))];
+        CollectionAssert.AreEqual(new[] { "src/BB84.MPX1.App/Assets/BB84.MPX1.ico" }, images);
+    }
 
     [TestMethod]
     [Description("GUD-001: codec entry points take spans")]
@@ -239,7 +246,7 @@ public sealed partial class ArchitectureTests
     [GeneratedRegex(@"JsonSerializer\.(Serialize|Deserialize)\(")]
     private static partial Regex JsonCall();
 
-    [GeneratedRegex(@"dotnet publish src/BB84\.MPX1\.App\b[^\n]*-r win-x64")]
+    [GeneratedRegex(@"dotnet publish src/BB84\.MPX1\.App\b[^\n]*-r \$\{\{ matrix\.rid \}\}")]
     private static partial Regex AotPublish();
 
     [GeneratedRegex(@"<Version(Major|Minor|Patch)>(\d+)</Version\1>")]

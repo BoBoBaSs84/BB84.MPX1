@@ -22,8 +22,8 @@ Delivery plan for the clean-room Lexicon MPX 1 SysEx editor. Requirement IDs ref
 | P1.1 | Linux groundwork & CI                   | M9                               | Done         |
 | P1.2 | ALSA sequencer transport                | P1.1                             | Done         |
 | P1.3 | Linux publish & AppImage                | P1.1                             | Done         |
-| P1.4 | Flatpak                                 | P1.2, P1.3                       | In progress  |
-| P1.5 | Linux validation & release              | P1.2, P1.3, P1.4                 | Planned      |
+| P1.4 | Flatpak                                 | P1.2, P1.3                       | Done         |
+| P1.5 | Linux validation & release              | P1.2, P1.3, P1.4                 | In progress  |
 | P2   | macOS support (post-1.0)                | P1                               | Planned      |
 | P2.1 | CoreMIDI transport & macOS CI           | P1                               | Planned      |
 | P2.2 | macOS publish & app bundle              | P2.1                             | Planned      |
@@ -317,6 +317,8 @@ Flathub submission is out of scope; it can follow once the bundle works.
 ### P1.5 — Linux validation & release
 
 Issue [#44](https://github.com/BoBoBaSs84/BB84.MPX1/issues/44).
+
+The release candidate `v1.1.0-rc.1` carries the Windows zip, the AppImage and the Flatpak bundle to validate. Its findings go into the final `v1.1.0`. Whether the `Hardware` suite moves to a cross-platform test project depends on USB passthrough to the VM.
 
 **Goal**: Linux verified end to end and released.
 

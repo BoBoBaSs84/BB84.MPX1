@@ -105,13 +105,14 @@ BB84.MPX1 is a clean-room reimplementation of a MIDI System Exclusive (SysEx) ed
 
 ### 3.2 Transport (TRN)
 
-- **TRN-001**: All MIDI I/O shall go through `IMidiTransport` (section 4.1). No other layer calls OS MIDI APIs.
+- **TRN-001**: All MIDI I/O shall go through `IMidiTransport` (section 4.1). No other layer calls OS MIDI APIs; only the WinMM and ALSA adapters do.
 - **TRN-002**: The WinMM transport shall use `[LibraryImport]` source-generated P/Invoke against `winmm.dll` (`midiInGetNumDevs`, `midiInGetDevCaps`, `midiInOpen`, `midiInPrepareHeader`, `midiInAddBuffer`, `midiInStart`, `midiInStop`, `midiInReset`, `midiInClose`, and the matching `midiOut*` functions including `midiOutLongMsg` and `midiOutShortMsg`).
 - **TRN-003**: The WinMM input callback shall be a static `[UnmanagedCallersOnly]` function. It shall copy data out of the driver buffer, re-queue the buffer, and hand the bytes to a managed channel without blocking.
 - **TRN-004**: The transport shall reassemble SysEx frames that arrive split across several driver buffers, and support frames of at least 4096 bytes (the Program Dump is 844 bytes; the Database Dump is about 1506 bytes).
 - **TRN-005**: The transport shall deliver short (channel) messages separately from SysEx frames.
 - **TRN-006**: Port enumeration shall return stable identifiers and display names. Open/close shall be idempotent and safe to call from any thread.
 - **TRN-007**: The simulator (SIM) and a record/replay transport shall implement the same interface.
+- **TRN-008**: On Linux, the ALSA transport shall use `[LibraryImport]` source-generated P/Invoke against the sequencer API in `libasound.so.2`. It is one sequencer client with one input and one output port, subscribed to the chosen ports; port IDs are `client name:port name`. Outgoing SysEx is sent in chunks of at most 256 bytes, and incoming SysEx events are reassembled (TRN-004). Without a sequencer (no `libasound` or no `/dev/snd/seq`) the app offers only the simulator.
 
 ### 3.3 Session (SES)
 
@@ -237,8 +238,9 @@ Each dump is a Parameter Data (`01`) transfer at the control address the learned
 | `src/BB84.MPX1.Core`       | Class library (AOT/trim compatible)            | —                                 |
 | `src/BB84.MPX1.Midi`       | Class library: transport abstraction + session | Core                              |
 | `src/BB84.MPX1.Midi.WinMM` | Class library: WinMM adapter (Windows only)    | Midi                              |
+| `src/BB84.MPX1.Midi.Alsa`  | Class library: ALSA sequencer adapter (Linux)  | Midi                              |
 | `src/BB84.MPX1.Simulator`  | Class library: simulated device + replay       | Core, Midi                        |
-| `src/BB84.MPX1.App`        | Avalonia application, `PublishAot=true`        | Core, Midi, Midi.WinMM, Simulator |
+| `src/BB84.MPX1.App`        | Avalonia application, `PublishAot=true`        | Core, Midi, Midi.WinMM, Midi.Alsa, Simulator |
 | `tests/BB84.MPX1.*.Tests`  | MSTest projects, one per library               | project under test                |
 
 ### 4.2 Transport contract

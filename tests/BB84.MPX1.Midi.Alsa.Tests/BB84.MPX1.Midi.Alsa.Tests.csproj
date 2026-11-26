@@ -1,0 +1,13 @@
+<Project Sdk="MSTest.Sdk">
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>linux</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BB84.MPX1.Midi.Alsa\BB84.MPX1.Midi.Alsa.csproj" />
+  </ItemGroup>
+
+</Project>

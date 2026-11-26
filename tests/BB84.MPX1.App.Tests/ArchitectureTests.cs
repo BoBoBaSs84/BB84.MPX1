@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using BB84.MPX1.App.ViewModels;
 using BB84.MPX1.Core.Protocol;
 using BB84.MPX1.Midi;
+using BB84.MPX1.Midi.Alsa;
 using BB84.MPX1.Midi.WinMM;
 using BB84.MPX1.Simulator;
 
@@ -19,6 +20,7 @@ public sealed partial class ArchitectureTests
     private static readonly Assembly Core = typeof(Mpx1Codec).Assembly;
     private static readonly Assembly Midi = typeof(Mpx1Session).Assembly;
     private static readonly Assembly WinMM = typeof(WinMMMidiTransport).Assembly;
+    private static readonly Assembly Alsa = typeof(AlsaMidiTransport).Assembly;
     private static readonly Assembly SimulatorAssembly = typeof(Mpx1Simulator).Assembly;
     private static readonly Assembly AppAssembly = typeof(MainWindowViewModel).Assembly;
 
@@ -101,6 +103,8 @@ public sealed partial class ArchitectureTests
         Assert.Contains("BB84.MPX1.Midi", References(WinMM).ToList(), "The WinMM adapter implements the Midi port.");
         string[] adapterAllowed = ["BB84.MPX1.Core", "BB84.MPX1.Midi"];
         CollectionAssert.IsSubsetOf(References(WinMM), adapterAllowed);
+        Assert.Contains("BB84.MPX1.Midi", References(Alsa).ToList(), "The ALSA adapter implements the Midi port.");
+        CollectionAssert.IsSubsetOf(References(Alsa), adapterAllowed);
         CollectionAssert.IsSubsetOf(References(SimulatorAssembly), adapterAllowed);
         foreach (string file in SourceFiles("src/BB84.MPX1.Core", "*.cs"))
         {
@@ -162,7 +166,7 @@ public sealed partial class ArchitectureTests
     public void AsyncApis_TakeCancellationTokens()
     {
         List<string> offenders = [];
-        foreach (Type type in new[] { Midi, WinMM, SimulatorAssembly }.SelectMany(a => a.GetExportedTypes()))
+        foreach (Type type in new[] { Midi, WinMM, Alsa, SimulatorAssembly }.SelectMany(a => a.GetExportedTypes()))
         {
             foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
             {
@@ -191,18 +195,20 @@ public sealed partial class ArchitectureTests
     }
 
     [TestMethod]
-    [Description("TRN-001: only the WinMM adapter calls operating-system MIDI APIs, through source-generated P/Invoke")]
-    public void Interop_OnlyInWinMMAdapter()
+    [Description("TRN-001, TRN-008: only the WinMM and ALSA adapters call operating-system MIDI APIs, through source-generated P/Invoke")]
+    public void Interop_OnlyInAdapters()
     {
         foreach (string file in SourceFiles("src", "*.cs"))
         {
             string text = File.ReadAllText(file);
-            bool inAdapter = file.Contains("BB84.MPX1.Midi.WinMM", StringComparison.Ordinal);
+            bool inAdapter = file.Contains("BB84.MPX1.Midi.WinMM", StringComparison.Ordinal)
+                || file.Contains("BB84.MPX1.Midi.Alsa", StringComparison.Ordinal);
             if (!inAdapter)
                 Assert.DoesNotContain("LibraryImport", text, file);
             Assert.DoesNotContain("[DllImport", text, file);
         }
         Assert.Contains("winmm", ReadFile("src/BB84.MPX1.Midi.WinMM/NativeMethods.cs"));
+        Assert.Contains("libasound.so.2", ReadFile("src/BB84.MPX1.Midi.Alsa/NativeMethods.cs"));
     }
 
     [TestMethod]

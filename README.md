@@ -63,7 +63,7 @@ dotnet test --solution BB84.MPX1.slnx -c Release -- --ignore-exit-code 8 --filte
 dotnet publish src/BB84.MPX1.App -c Release -r win-x64 -o artifacts/publish
 ```
 
-The solution also builds and its tests pass on Linux. There the app offers only the simulator until a Linux MIDI transport is added (roadmap P1.2). The WinMM tests skip themselves on Linux. To package a release zip, run `./build/package.ps1 -Version <version> -Runtime win-x64` (or `linux-x64`).
+The solution also builds and its tests pass on Linux. There the app talks to MIDI ports through the ALSA sequencer. It needs `libasound2` and access to `/dev/snd/seq` (usually membership in the `audio` group). Ports are listed as `client:port`, for example `UM-ONE:UM-ONE MIDI 1`. Without a sequencer the app offers only the simulator. The WinMM tests skip themselves on Linux. The ALSA loopback tests (category `Alsa`) use the kernel's `Midi Through` port (`sudo modprobe snd-seq-dummy`), and report as inconclusive without it. To package a release zip, run `./build/package.ps1 -Version <version> -Runtime win-x64` (or `linux-x64`).
 
 ### Unit tests and loopMIDI
 

@@ -172,13 +172,15 @@ public sealed class ServiceTests
 
     [TestMethod]
     [OSCondition(OperatingSystems.Linux)]
-    [Description("CON-001: on Linux, without a hardware transport, the default catalog offers only the simulator")]
-    public async Task DefaultCatalog_OnLinux_OffersOnlyTheSimulator()
+    [Description("CON-001, TRN-008: on Linux the default catalog lists the simulator first, also without an ALSA sequencer")]
+    public async Task DefaultCatalog_OnLinux_ListsSimulatorFirst()
     {
         MidiPortCatalog catalog = MidiPortCatalog.CreateDefault();
 
-        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetInputs().Single());
-        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetOutputs().Single());
+        // Without /dev/snd/seq (containers, CI) listing must not throw; the simulator is the only port then.
+        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetInputs()[0]);
+        Assert.AreEqual(MidiPortCatalog.Simulator, catalog.GetOutputs()[0]);
+        Assert.IsTrue(catalog.GetInputs().Skip(1).All(p => !p.IsSimulator && p.Key.StartsWith("midi:", StringComparison.Ordinal)));
         await using IMidiTransport transport = catalog.CreateTransport(MidiPortCatalog.Simulator, MidiPortCatalog.Simulator);
         Assert.IsInstanceOfType<Simulator.Mpx1Simulator>(transport);
     }

@@ -1,4 +1,5 @@
 using BB84.MPX1.Midi;
+using BB84.MPX1.Midi.Alsa;
 using BB84.MPX1.Midi.WinMM;
 using BB84.MPX1.Simulator;
 
@@ -32,7 +33,7 @@ public interface IMidiPortCatalog
 }
 
 /// <summary>
-/// Default catalog: the "MPX 1 Simulator" pseudo-port plus every WinMM port. Hardware enumeration failures
+/// Default catalog: the "MPX 1 Simulator" pseudo-port plus every WinMM (Windows) or ALSA sequencer (Linux) port. Hardware enumeration failures
 /// (for example on a machine without MIDI drivers) leave only the simulator.
 /// </summary>
 /// <param name="createHardware">Creates a hardware transport; <see langword="null"/> for none (tests).</param>
@@ -48,12 +49,15 @@ public sealed class MidiPortCatalog(Func<IMidiTransport>? createHardware, Func<M
     public static MidiPortCatalog CreateDefault()
         => new(HardwareFactory());
 
-    // ALSA (P1.2) and CoreMIDI (P2.1) adapters plug in here; without one the app offers only the simulator.
+    // The CoreMIDI adapter (P2.1) plugs in here; without an adapter the app offers only the simulator.
     private static Func<IMidiTransport>? HardwareFactory()
-        => OperatingSystem.IsWindows() ? CreateWinMM : null;
+        => OperatingSystem.IsWindows() ? CreateWinMM : OperatingSystem.IsLinux() ? CreateAlsa : null;
 
     private static WinMMMidiTransport CreateWinMM()
         => OperatingSystem.IsWindows() ? new WinMMMidiTransport() : throw new PlatformNotSupportedException("WinMM is only available on Windows.");
+
+    private static AlsaMidiTransport CreateAlsa()
+        => OperatingSystem.IsLinux() ? new AlsaMidiTransport() : throw new PlatformNotSupportedException("ALSA is only available on Linux.");
 
     /// <summary>The simulator pseudo-port.</summary>
     public static MidiPortChoice Simulator { get; } = new(SimulatorPrefix + Mpx1Simulator.Port.Id.Value, Mpx1Simulator.Port.Name, Mpx1Simulator.Port, IsSimulator: true);
@@ -88,9 +92,9 @@ public sealed class MidiPortCatalog(Func<IMidiTransport>? createHardware, Func<M
             transport = createHardware();
             result.AddRange(ports(transport).Select(p => new MidiPortChoice(HardwarePrefix + p.Id.Value, p.Name, p, IsSimulator: false)));
         }
-        catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException)
+        catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException or IOException)
         {
-            // No usable MIDI subsystem: the simulator stays available.
+            // No usable MIDI subsystem (for example no ALSA sequencer): the simulator stays available.
         }
         finally
         {

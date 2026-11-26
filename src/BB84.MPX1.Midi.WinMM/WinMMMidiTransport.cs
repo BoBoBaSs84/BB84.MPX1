@@ -58,7 +58,7 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
                 ? new string(caps.szPname).TrimEnd('\0')
                 : $"MIDI In {i}");
         }
-        return ToPorts(names);
+        return MidiPortNames.MakeUnique(names);
     }
 
     /// <inheritdoc/>
@@ -73,23 +73,7 @@ public sealed class WinMMMidiTransport : IMidiTransport, IDisposable
                 ? new string(caps.szPname).TrimEnd('\0')
                 : $"MIDI Out {i}");
         }
-        return ToPorts(names);
-    }
-
-    /// <summary>Makes port names unique by appending a counter to duplicates (TRN-006).</summary>
-    /// <param name="names">Device names in index order.</param>
-    internal static IReadOnlyList<MidiPortInfo> ToPorts(IReadOnlyList<string> names)
-    {
-        Dictionary<string, int> seen = new(StringComparer.Ordinal);
-        List<MidiPortInfo> ports = new(names.Count);
-        foreach (string name in names)
-        {
-            int n = seen.TryGetValue(name, out int previous) ? previous + 1 : 1;
-            seen[name] = n;
-            string id = n == 1 ? name : $"{name} ({n})";
-            ports.Add(new MidiPortInfo(new MidiPortId(id), id));
-        }
-        return ports;
+        return MidiPortNames.MakeUnique(names);
     }
 
     /// <inheritdoc/>
